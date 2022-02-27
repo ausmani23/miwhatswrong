@@ -136,6 +136,11 @@ anesdf$raceXclass[tmp]<-'other'
 
 #summary stats
 
+#what % of blacks have been ever arrested
+tmp<-anesdf$black=='black'
+weighted.mean(anesdf$arrest_f[tmp]=='everarrested',anesdf$weight[tmp],na.rm=T)
+#about 20%.. 
+
 #by race
 tmptable <- wtd.table(
   anesdf$race_f,
