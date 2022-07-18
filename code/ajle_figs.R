@@ -104,7 +104,7 @@ extradf<-extradf[
 extradf<-spread(extradf,statistic,value)
 
 
-#big countries only?
+#big countries only
 extradf<-extradf[population>4*10^6]
 
 # #we only want countries for which we have all four
@@ -113,6 +113,31 @@ extradf<-extradf[population>4*10^6]
 
 #########################################################
 #########################################################
+
+#what sources are we relying on
+maindf<-fread('histpundf_national_220128.csv')
+countries<-unique(fulldf$countryname,extradf$countryname)
+statistics<-c(
+  'population',
+  'prisoners',
+  'policekillings',
+  'homicides',
+  'police',
+  'arrests',
+  'arrests_homicide',
+  'convictions_homicide'
+)
+
+maindf[
+  countryname%in%countries &
+    statistic%in%statistics,
+  'source'
+] %>% table %>% sort
+
+#########################################################
+#########################################################
+
+#simple renames
 
 tmp<-fulldf$countryname=='United States of America'
 fulldf$countryname[tmp]<-'USA'
@@ -127,7 +152,7 @@ extradf$countryname[tmp]<-'Germany'
 #########################################################
 #########################################################
 
-#add UK manually
+#add UK manually, since england/wales + Uk problem haven't been addressed
 #https://commonslibrary.parliament.uk/research-briefings/sn04334/#:~:text=Prison%20population%20per%20capita&text=167%20prisoners%20per%20100%2C000%20of,in%20England%20and%20Wales%20(2020)
 fulldf$prisoners[fulldf$countryname=='United Kingdom']<-167
 
@@ -146,14 +171,20 @@ advanced<-fulldf$advanced
 #incarceration rates in other advanced countries
 rates_othcountries <- fulldf$prisoners[!usa & advanced]
 rates_quantiles <- quantile(rates_othcountries,c(0.2,0.5,0.8),na.rm=T)
+rate_usa <- fulldf$prisoners[usa]
 
 #police rates in other countries
 polrates_othcountries <- fulldf$police[!usa & advanced]
 polrates_quantiles <- quantile(polrates_othcountries,c(0.2,0.5,0.8),na.rm=T)
+polrate_usa <- fulldf$police[usa]
+polrate_usa/polrates_quantiles[2] #70% of median country
+tmpf<-ecdf(polrates_othcountries)
+tmpf(polrate_usa) #41st percentile
 
 #prispol ratios in other countries
 prispolratios_othcountries <- fulldf$prispolratio[!usa & advanced]
 prispolratios_quantiles <- quantile(prispolratios_othcountries,c(0.2,0.5,0.8),na.rm=T)
+1/prispolratios_quantiles[2] #about 3.36 police/prisoner
 prispolratio_usa <- fulldf$prispolratio[usa]
 
 #polhom ratios
@@ -305,6 +336,104 @@ ggsave(
 )
 
 
+#########################################################
+#########################################################
+
+#figure X: add the solution and the dotted line
+cost_policeofficer <- 130000 #chaflin and mccary 2017, p. 182
+#cost_prisoner <- 31000 #roodman, conclusion
+cost_prisoner <- 33089 #chalfin and mccary 2017, p. 183
+setwd(codedir); dir()
+
+#we assume these numbers give slope of substitution 
+prispol_tradeoff_slope <- -1 * (cost_policeofficer/cost_prisoner) 
+y0 <- incrateusa_2019 - (prispol_tradeoff_slope * 10^5 * police_2019/pop_2019)
+solution_fun <- function(x) y0 + prispol_tradeoff_slope * x
+
+#find intersection of the two lines
+#based on paper =
+x_intersect = y0 / (prispol_slope - prispol_tradeoff_slope)
+y_intersect = firstworld_fun(x_intersect)
+solution_fun(x_intersect) #should be the same
+solutiondf<-data.frame(
+  police=x_intersect,
+  prisoners=y_intersect,
+  countryname='FWB',
+  usa=T
+  )
+
+plotdf<-rbind.fill(
+  plotdf,
+  solutiondf
+)
+
+plotdf$countryname[plotdf$countryname%in%c('Germany')]<-""
+
+
+g.tmp <- ggplot(
+  plotdf,
+  aes(
+    label=countryname,
+    x=police,
+    y=prisoners,
+    size=usa,
+    alpha=usa
+  )
+) +
+  geom_text_repel() +
+  stat_function(
+    fun=firstworld_fun,
+    size=1,
+    color='darkred',
+    linetype='dashed',
+    alpha=0.5
+  ) +
+  stat_function(
+    fun=usa_fun,
+    size=1,
+    color='darkred',
+    linetype='dashed',
+    alpha=0.5
+  ) +
+  scale_alpha_manual(
+    guide='none',
+    values=tmpalphas
+  ) +
+  scale_size_manual(
+    guide='none',
+    values=tmpsizes
+  ) +
+  geom_point(
+    size=1,
+    alpha=0.5
+  ) +
+  scale_x_continuous(
+    breaks=c(0,250,500,750),
+    limits=c(0,750)
+  ) + 
+  scale_y_continuous(
+    breaks=c(0,250,500,750),
+    limits=c(0,750)
+  ) +
+  xlab('\nPolice per 100,000') +
+  ylab('Prisoners per 100,000\n') +
+  theme_bw() +
+  stat_function(
+    fun=solution_fun,
+    size=0.5,
+    color='grey',
+    linetype=2,
+    arrow = arrow(length = unit(0.10, "cm"))
+  ) 
+
+
+setwd(outputdir)
+ggsave(
+  filename='fig_policeprisoners_percapita_withsolution.png',
+  plot=g.tmp,
+  width=5,
+  height=5
+)
 
 #########################################################
 #########################################################
@@ -527,15 +656,25 @@ plotdf$polhomratio <- plotdf$police/plotdf$homicides
 plotdf$clearance_rate <- plotdf$arrests_homicide/
   plotdf$homicides
 plotdf$police_efficiency <- plotdf$arrests_homicide/plotdf$police
-plotdf$clearance_rate2 <- plotdf$convictions_homicide/plotdf$homicides
 
-#arrests is not perfectly comparable, so consider convictions
+#for #'s, look at convictions
+plotdf$clearance_rate2 <- plotdf$convictions_homicide/plotdf$homicides
 #https://bjs.ojp.gov/content/pub/pdf/fssc06st.pdf, table 1.6
 tmp<-plotdf$countryname=='USA'
 plotdf$clearance_rate2[tmp] <- 8816/homicides_2006
-
 #back out police efficiency, using clearance rate and polhomratio
 plotdf$police_efficiency2 <- plotdf$clearance_rate2/plotdf$polhomratio
+
+#compare US to others
+usa<-plotdf$countryname=='USA'
+crates_othcountries <- plotdf$clearance_rate2[!usa]
+crates_quantiles <- quantile(crates_othcountries,c(0.2,0.5,0.8),na.rm=T)
+plotdf$clearance_rate2[usa]/crates_quantiles[2]
+
+
+
+
+
 
 # setwd(outputdir)
 # write.csv(
@@ -571,7 +710,7 @@ tmplevels<-c(
 tmplabels<-c(
   'Clearance Rate (Homicide Arrests/Homicides)',
   'Police Footprint (Police/Homicides)',
-  'Police Efficiency (Homicide Arrests/Police)'
+  'Police Focus (Homicide Arrests/Police)'
 )
 plotdf$var<-factor(plotdf$var,tmplevels,tmplabels)
 
@@ -702,8 +841,6 @@ ggsave(
 
 #plot arrests/homicide and prisoners/homicide
 #but add rows for blacks and whites in the US, separately
-
-
 plotdf<-extradf[advanced==T] 
 
 #get facts from usa today
@@ -728,7 +865,6 @@ plotdf$prisoners[tmp] <- prisoners_2019
 #but a better estimate would use what we know about inter-racial crime
 #so we do that, using additional info in:
 #https://ucr.fbi.gov/crime-in-the-u.s/2019/crime-in-the-u.s.-2019/tables/expanded-homicide-data-table-6.xls
-
 blackvictims_homicides_2019 <- 0.547 * homicides_2019
 whitevictims_homicides_2019 <- 0.423 * homicides_2019
 blackoffenders_homicides_2019 <- 
@@ -914,17 +1050,18 @@ ggsave(
   height=5*1.25
 )
 
-stop()
 #########################################################
 #########################################################
 
 #calculations for welfare section
 
-
 arrests<-+ 7808300
 prisoners<- -1932000
 arrest_to_prisonyear<-3/365
 arrests_prisonyears <- arrests * arrest_to_prisonyear
+
+arrests_prisonyears/prisoners
+
 prisonyear_to_lifeyear <-1/2
 arrests_lifeyears <- arrests_prisonyears * prisonyear_to_lifeyear
 lifeyears_to_life <- 1/65
@@ -1015,7 +1152,8 @@ ggsave(
   height=5
 )
 
-
+#########################################################
+#########################################################
 
 
 

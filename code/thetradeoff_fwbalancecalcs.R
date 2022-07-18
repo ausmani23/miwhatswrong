@@ -116,6 +116,11 @@ arrests_perofficer_liquor <-c(
   sum(as.numeric(unlist(tmpdf[c(41),4]))),
   sum(as.numeric(unlist(tmpdf[c(52),4])))
 ) 
+arrests_perofficer_violent + 
+  arrests_perofficer_property + 
+  arrests_perofficer_drug + 
+  arrests_perofficer_liquor
+
 setwd(olddir)
 
 extrapriz_frompolice <- 

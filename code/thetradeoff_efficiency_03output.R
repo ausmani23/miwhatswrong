@@ -48,6 +48,16 @@ setwd(codedir); dir()
 source('calculate_homicides.R')
 source('calculate_costsbenefits.R')
 
+
+#########################################################
+#########################################################
+
+#GET #'S OF THE EFFICIENT POINT
+
+sumdf[pointType=='fwbalance']
+sumdf[pointType=='statusquo']
+
+
 #########################################################
 #########################################################
 
@@ -58,7 +68,7 @@ plotdf <- sumdf[
   myMethod=='stepwise' &
     myUnits=='yearsoflife' &
     myOrientation=='bestguess' &
-    pointType=='2d' &
+    myElasticities=='constant' & 
     myPrizChoice=='standard'
 ]
 

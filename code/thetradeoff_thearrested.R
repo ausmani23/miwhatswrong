@@ -118,6 +118,17 @@ tmp<-anesdf$everarrested==1
 anesdf$arrest_f[tmp]<-"everarrested"
 tmp<-anesdf$everarrested==2
 anesdf$arrest_f[tmp]<-"neverarrested"
+tmptab<-table(anesdf$everarrested)
+sum(tmptab[names(tmptab)%in%c('1','2')])/sum(tmptab)
+# 
+# if everyone who was black and missing was arrested?
+# anesdf$arrest_f[
+#   is.na(anesdf$arrest_f) &
+#     anesdf$race_f=='black' &
+#     !is.na(anesdf$race_f)
+# ]<-'everarrested'
+
+
 require(questionr)
 wtd.table(anesdf$arrest_f,weights=anesdf$weight_f) #46 mill
 
@@ -138,7 +149,11 @@ anesdf$raceXclass[tmp]<-'other'
 
 #what % of blacks have been ever arrested
 tmp<-anesdf$black=='black'
-weighted.mean(anesdf$arrest_f[tmp]=='everarrested',anesdf$weight[tmp],na.rm=T)
+weighted.mean(
+  anesdf$arrest_f[tmp]=='everarrested',
+  anesdf$weight[tmp],
+  na.rm=T
+)
 #about 20%.. 
 
 #by race
@@ -162,8 +177,6 @@ returndf<-data.frame(
   category='black',
   val=tmptab['black'] %>% unname
 )
-
-
 tmptable[,2]/apply(tmptable,2,sum)[2]
 
 
@@ -185,8 +198,6 @@ returndf<-rbind.fill(
     val=tmptab['hsdropout']
   )
 )
-
-
 tmptable[,2]/apply(tmptable,2,sum)[2]
 
 
