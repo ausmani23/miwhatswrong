@@ -1155,5 +1155,10 @@ ggsave(
 #########################################################
 #########################################################
 
+#TO REPLICATE CALCS AND FIGURES FROM SECTION IV. PRIORITIZING THE DISADVANTAGED
 
-
+setwd(codedir); dir()
+source("thetradeoff_fairness_01thearrested.R")
+source("thetradeoff_fairness_02theincarcerated.R")
+source("thetradeoff_fairness_03themurdered.R")
+source("thetradeoff_fairness_04output.R")
