@@ -33,6 +33,115 @@ outputdir<-file.path(
 #########################################################
 #########################################################
 
+# make a graph of government spending per capita, 
+# on different programs
+
+setwd(datadir); dir()
+tmpdf<-fread('usaspending.csv')
+plotdf<-tmpdf[
+  institution=='national' & 
+    year==2014 & 
+    !statistic%in%c('govrevenue','govspending')
+]
+popusa_2014 <- 318.4 * 10^6
+plotdf$value <- plotdf$value/popusa_2014
+
+tmp<-str_detect(
+  plotdf$statistic,'punitive'
+)
+plotdf$x<-'Social'
+plotdf$x[tmp]<-'Penal'
+plotdf$x<-factor(
+  plotdf$x,
+  levels=c('Social','Penal')
+)
+
+#fix the levels/colors
+tmplevels<-c(
+  #penal
+  "punitivespending_court",
+  "punitivespending_police",
+  "punitivespending_prison",
+  #social
+  "socialspending_education",
+  "socialspending_health",
+  "socialspending_housing",
+  "socialspending_transfer",
+  "socialspending_misc"
+)
+tmplabels<-c(
+  #penal
+  "Courts",
+  "Police",
+  "Prison",
+  #social
+  "Education",
+  "Healthcare",
+  "Housing",
+  "Income Transfer",
+  "Other"
+)
+plotdf$cat<-factor(
+  plotdf$statistic,
+  tmplevels,
+  tmplabels
+)
+
+#get blue/red colors
+blues<-hcl(
+  h=seq(210,240,length=3),
+  l=65,
+  c=100
+)
+reds<-hcl(
+  h=seq(0,60,length=5),
+  l=65,
+  c=100
+)
+tmpcolors<-c(
+  blues,
+  reds
+)
+names(tmpcolors)<-tmplabels
+
+g.tmp <- ggplot(
+  plotdf,
+  aes(
+    x=x,
+    y=value,
+    group=cat,
+    fill=cat
+  )
+) +
+  geom_bar(
+    stat='identity',
+    color='black'
+  ) +
+  scale_fill_manual(
+    values=tmpcolors,
+    name=""
+  ) +
+  xlab('') +
+  ylab('\nGovernment Spending Per Person') +
+  coord_flip() + 
+  theme_bw() +
+  theme(
+    legend.position='top',
+    legend.direction='horizontal'
+  )
+
+setwd(outputdir)
+ggsave(
+  plot=g.tmp,
+  filename='fig_usaspending2014.png',
+  width=8,
+  height=3
+)
+
+
+#########################################################
+#########################################################
+
 # goal: a graph showing the life course
 
 #cbt

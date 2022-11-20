@@ -49,13 +49,20 @@ source('calculate_costsbenefits.R')
 loopdf <- expand.grid(
   #the full two-dimensional space 
   prisonrate = seq(from=0,1000,by=10),
-  policerate = seq(from=0,750,by=10),
+  policerate = seq(from=0,1000,by=10),
   #other choices
-  myMethod = c('stepwise','direct'),
-  myUnits = c('yearsoflife','lives'),
-  myOrientation=c('bestguess','pessimistic_police','optimistic_prison'),
-  myElasticities=c('constant','changing'),
-  myPrizChoice=c('standard','deflated'),
+  myMethod = c('stepwise','direct'), #elasticity: stepwise or direct?
+  myUnits = c('yearsoflife','lives'), #unit: years of life or lives
+  myOrientation=c(
+    'bestguess',
+    'pessimistic_police_crime', # you think police do not really reduce crime
+    'pessimistic_police_arrests', #you think police will result in lots of arrests
+    'pessimistic_arrest', #you think arrest is really bad
+    'pessimistic_police_killings', #you think police killings will increase
+    'optimistic_prison' #optimistic about prison reducing crim
+  ),
+  myElasticities=c('constant','changing'), #elasticities: constant of changing?
+  myPrizChoice=c('standard','deflated'), #prison: how bad is it as a year of life?
   pointType = '2d'
 )
 
@@ -63,13 +70,13 @@ loopdf <- expand.grid(
 tmpdf <- data.frame(
   policerate=c(
     solutiondf$x,
-    0.75 * 10^5 * police_2019/pop_2019, #defund
-    10^5 * police_2019/pop_2019
+    0.75 * 10^5 * police_2021/pop_2021, #defund
+    10^5 * police_2021/pop_2021
   ),
   prisonrate=c(
     solutiondf$y,
     50, #defund
-    incrateusa_2019
+    incrateusa_2021
   ),
   pointType=c(
     'fwbalance',
@@ -77,14 +84,22 @@ tmpdf <- data.frame(
     'statusquo'
   )
 )
+
 tmpdf <- merge(
   tmpdf,
   expand.grid(
-    myMethod = c('stepwise','direct'),
-    myUnits = c('yearsoflife','lives'),
-    myOrientation=c('bestguess','pessimistic_police','optimistic_prison'),
-    myElasticities=c('constant','changing'),
-    myPrizChoice=c('standard','deflated')
+    myMethod = c('stepwise','direct'), #elasticity: stepwise or direct?
+    myUnits = c('yearsoflife','lives'), #unit: years of life or lives
+    myOrientation=c(
+      'bestguess',
+      'pessimistic_police_crime', # you think police do not really reduce crime
+      'pessimistic_police_arrests', #you think police will result in lots of arrests
+      'pessimistic_arrest', #you think arrest is really bad
+      'pessimistic_police_killings', #you think police killings will increase
+      'optimistic_prison' #you think prison reduces crime
+    ),
+    myElasticities=c('constant','changing'), #elasticities: constant of changing?
+    myPrizChoice=c('standard','deflated') #prison: how bad is it as a year of life?
   ),
   by=NULL
 )
@@ -94,14 +109,20 @@ loopdf <- rbind.fill(
 )
 
 #we just want robustness checks
-keyvars<-c('myMethod','myUnits','myOrientation','myElasticities','myPrizChoice')
+keyvars<-c(
+  'myMethod',
+  'myUnits',
+  'myOrientation',
+  'myElasticities',
+  'myPrizChoice'
+)
 tmpdf <- unique(loopdf[,keyvars])
 tmp_default<-tmpdf$myMethod=='stepwise' & 
   tmpdf$myUnits=='yearsoflife' &
   tmpdf$myOrientation=='bestguess' &
   tmpdf$myElasticities=='constant' &
-  tmpdf$myPrizChoice=='standard'
-thisrow <- tmpdf[tmp_default]
+  tmpdf$myPrizChoice=='standard' 
+thisrow <- tmpdf[tmp_default,]
 tmp<-lapply(names(tmpdf),function(tmpvar) {
   #tmpvar<-c('myMethod')
   tmp1<-tmpdf[[tmpvar]]!=tmpdf[[tmpvar]][tmp_default] 
@@ -114,12 +135,21 @@ tmp<-lapply(names(tmpdf),function(tmpvar) {
 tmp_extra <- Reduce(f='|',tmp)
 tmpdf<-tmpdf[tmp_default | tmp_extra,]
 tmplevels<-c(
+  #
   'Preferred Choices',
+  #
   'Not Stepwise',
+  #
   'Lives Lost',
-  'Pessimistic About Police',
-  'Optimistic About Prison',
+  #
+  'Police Dont Reduce Crime',
+  'Police Lead to Lots of Arrests',
+  'Arrest = 1 Week in Prison',
+  'More Police More Police Violence',
+  'Prison Does Reduce Crime',
+  #
   'Changing Elasticities',
+  #
   'Prison-Year Deflated'
 )
 tmpdf$choice<-tmplevels
@@ -131,7 +161,7 @@ loopdf<-merge(
 
 loopdf$i<-1:nrow(loopdf)
 myoutput <- lapply(loopdf$i,function(i) {
-  #i<-38396
+  #i<-1
   print(paste(i,'of',max(loopdf$i)))
   #print(i)
   tmplist <- calculate_costsbenefits(

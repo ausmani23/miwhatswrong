@@ -30,151 +30,768 @@ filesdir<-file.path(
   homedir,'files'
 )
 
+#helper function
+suma = function(x) if (all(is.na(x))) x[NA_integer_] else sum(x, na.rm = TRUE)
+
+
 #########################################################
 #########################################################
 
 #BLACK AND WHITE ARRESTEES
 
+#calculations are in this other file
+# setwd(codedir); dir()
+# source('thetradeoff_fairness_01thearrested.R')
+
+#########################################################
+#########################################################
+
+#POLICE KILLINGS
+
+#most reliable source
+require(rvest)
+url<-'https://www.prisonpolicy.org/blog/2020/06/05/policekillings/'
+tmptab<-read_html(url) %>%
+  html_nodes('table') %>%
+  html_table
+tmpdf<-tmptab[[1]]
+names(tmpdf)<-c(
+  'countryname',
+  'policekillings',
+  'population',
+  'policekillings_percapita',
+  'source',
+  'year',
+  'popsource'
+)
+tmpdf$policekillings <- 
+  str_replace(tmpdf$policekillings,"\\,","") %>% as.numeric
+sum(tmpdf$policekillings[tmpdf$countryname!='United States'])
+
+usa<-tmpdf$countryname=='United States'
+tmpdf$policekillings_percapita[usa]/
+  median(tmpdf$policekillings_percapita[!usa])
+
+#########################################################
+#########################################################
+
+#LIFE AT THE BOTTOM, US VS NORWAY
+
+#load kenworthy's dataset
+setwd(datadir); dir()
+require(readxl)
+thisfile<-'sdc-data.xlsx'
+tmpdf<-read_xlsx(
+  thisfile,
+  sheet='Fig 2.5'
+)
+tmpdf2<-read_xlsx(
+  thisfile,
+  sheet='Fig 2.6'
+)
+tmpdf<-merge(tmpdf,tmpdf2)
+
+nor<-tmpdf$countryabbr_nordic=='*Nor*'
+usa<-tmpdf$countryabbr_nordic=='US'
+tmpdf$p10income_2010to2016[nor]
+tmpdf$p10income_2010to2016[nor]/tmpdf$p10income_2010to2016[usa]
+
+tmpdf$relativepoverty_2010to2016[nor]
+tmpdf$relativepoverty_2010to2016[nor]/tmpdf$relativepoverty_2010to2016[usa]
+
+#########################################################
+#########################################################
+
+#EMPLOYMENT RATES
+setwd(datadir); dir()
+sumdfs<-readRDS('sumdfs.RDS')
+empdf<-lapply(sumdfs,function(x) x$emp_f) %>% 
+  rbind.fill
+empdf<-data.table(empdf)
+
+empdf[ ind_f%in%c(1), sector_f := 1] #agriculture
+empdf[ ind_f%in%c(2,3,4,5), sector_f := 2] #industry
+empdf[ ind_f%in%c(6,7,8,9), sector_f := 3] #services
+empdf[ ind_f%in%c(10), sector_f := 4] #govt
+
+empdf[ ind_f%in%c(1), sector2_f := 1] #agriculture
+empdf[ ind_f%in%c(2,3,4,5), sector2_f := 2] #industry
+empdf[ ind_f%in%c(6,7,8,9), sector2_f := 3] #services
+empdf[ ind_f%in%c(10), sector2_f := 3] #govt
+
+#trends by race and gender 
+plotdf <- empdf[
+  ageg_f%in%c(3,4,5) & 
+    race_f%in%c(1,2) &
+    !is.na(emp_f)
+  ,
+  .(
+    jobschoolless = 100 - 100 * suma(schoolemp_f)/sum(pop)
+  )
+  ,
+  by=c(
+    'race_f',
+    'sex_f',
+    'year'
+  )
+]
+
+tmplevels<-c(1,2)
+tmplabels<-c("White","Black")
+plotdf$race_f<-factor(
+  plotdf$race_f,
+  tmplevels,
+  tmplabels
+)
+
+tmplevels<-c(1,2)
+tmplabels<-c("Men","Women")
+plotdf$sex_f<-factor(
+  plotdf$sex_f,
+  tmplevels,
+  tmplabels
+)
+
+g.tmp <- ggplot(
+  plotdf,
+  aes(
+    x=year,
+    y=jobschoolless,
+    linetype=race_f
+  )
+) +
+  geom_line(
+    size=0.75
+  ) + 
+  facet_wrap( ~ sex_f) +
+  scale_linetype(
+    name=''
+  ) +
+  theme_bw() +
+  xlab("") +
+  ylab("% Neither in Job Nor School\n") +
+  theme(
+    legend.position = 'bottom',
+    legend.direction = 'horizontal',
+    panel.grid.minor = element_blank(),
+    panel.spacing = unit(1,'cm')
+    #plot.margin=unit(c(1,1,1,1), "cm")
+  )
+setwd(outputdir)
+ggsave(
+  'fig_jobs_gender.png',
+  g.tmp,
+  width=8/1.25,
+  height=4/1.25
+)
+
+#trends by race and skill 
+
+
+plotdf<-empdf[
+  ageg_f%in%c(3,4,5) &
+    race_f%in%c(1,2) &
+    sex_f%in%c(1) &
+    ed_p%in%c(1,3) &
+    !is.na(emp_f) & 
+    !is.na(ed_p)
+  ,
+  .(
+    jobschoolless = 100 - 100 * suma(schoolemp_f)/sum(pop)
+  ),
+  by=c(
+    'race_f',
+    'ed_p',
+    'year'
+  )
+]
+
+
+tmplevels<-c(1,2,3)
+tmplabels<-c(
+  "Low-Skill",
+  "Middle Skill",
+  "High-Skill"
+)
+plotdf$ed_p<-factor(
+  plotdf$ed_p,
+  tmplevels,
+  tmplabels
+)
+
+tmplevels<-c(1,2)
+tmplabels<-c("White","Black")
+plotdf$race_f<-factor(
+  plotdf$race_f,
+  tmplevels,
+  tmplabels
+)
+
+g.tmp <-ggplot(
+  plotdf,
+  aes(
+    x=year,
+    y=jobschoolless,
+    linetype=race_f
+  )
+) + 
+  geom_line() +
+  scale_linetype(
+    name=''
+  ) +
+  facet_wrap(
+    ~ ed_p
+  ) +  
+  theme_bw() +
+  xlab("") +
+  ylab("% Neither in Job Nor School\n") +
+  theme(
+    legend.position = 'bottom',
+    legend.direction = 'horizontal',
+    panel.grid.minor = element_blank(),
+    panel.spacing = unit(1,'cm')
+    #plot.margin=unit(c(1,1,1,1), "cm")
+  )
+setwd(outputdir)
+ggsave(
+  'fig_jobs_skill.png',
+  g.tmp,
+  width=8/1.25,
+  height=4/1.25
+)
+
+
+
+########################################################
+########################################################
+
+#load the SCF data
 setwd(datadir); dir()
 require(haven)
-anesdf<-read_dta('anes_timeseries_2016.dta') %>% 
+fulldf<-read_dta('rscfp2019.dta') %>%
   data.table
-myvars<-c(
-  "V160102", #weight
-  "V160201", #stratum
-  "V160202", #psu
-  "V162298", #everarrested
-  "V161310x", #race
-  "V161319x", #hispanic
-  "V161270", #education
-  "V161267", #age
-  "V161342" #gender
+names(fulldf)
+
+oldnames<-c(
+  'networth',
+  'income',
+  'racecl4',
+  'edcl',
+  'wgt',
+  'age'
 )
-anesdf <- anesdf[,myvars,with=F]
-names(anesdf)<-c(
-  'weight',
-  'stratum',
-  'psu',
-  'everarrested',
+newnames<-c(
+  'networth',
+  'income',
   'race',
-  'hispanic',
-  'education',
-  'age',
-  'gender'
+  'educ',
+  'weight',
+  'age'
 )
 
-#recodes
+fulldf <- fulldf[,oldnames,with=F]
+names(fulldf)<-newnames
 
-#adjust weights to give us the population of usa
-usapop <- 224.1 * 10^6 #codebook says reps this pop
-anesdf$weight_f <- anesdf$weight * usapop/sum(anesdf$weight)
+#income and net worth by raceXclass
+require(spatstat)
 
-#race
-anesdf$race_f<-NA_character_
-tmp<-anesdf$race==1
-anesdf$race_f[tmp]<-"white"
-tmp<-anesdf$race==2
-anesdf$race_f[tmp]<-"black"
-tmp<-anesdf$race==5
-anesdf$race_f[tmp]<-"hispanic"
-tmp<-anesdf$race==3
-anesdf$race_f[tmp]<-"asian"
-tmp<-anesdf$race==4
-anesdf$race_f[tmp]<-'nativeamerican'
-tmp<-anesdf$race==6
-anesdf$race_f[tmp]<-'other'
+#this is the racial gap
+tmpdf<-fulldf[
+  race%in%c(1,2)
+  ,
+  .(networth_median=weighted.median(networth,weight))
+  ,
+  by=c('race')
+]
+tmpdf$i<-1
+tmpdf<-spread(tmpdf,race,networth_median)
+tmpdf$`1`/tmpdf$`2` #about 7.85
 
-#black/white
-anesdf$black<-as.numeric(anesdf$race_f=='black')
-anesdf$black[anesdf$black==1]<-'black'
-anesdf$black[anesdf$black==0]<-'not black'
+#this is the education gap, amongst black people
+#college vs. high school
+tmpdf<-fulldf[
+  race%in%c(2) & 
+    educ%in%c(1,4)
+  ,
+  .(networth_median=weighted.median(networth,weight))
+  ,
+  by=c('race','educ')
+]
+tmpdf<-spread(tmpdf,educ,networth_median)
+tmpdf$`4`/tmpdf$`1` #about 10.3
 
-#class
-anesdf$education
-anesdf$ed_f<-NA
-tmp<-anesdf$education%in%c(1:8)
-anesdf$ed_f[tmp]<-'hsdropout'
-tmp<-anesdf$education%in%c(9:95)
-anesdf$ed_f[tmp]<-'hsgrad+' 
-anesdf$class<-as.numeric(anesdf$ed_f=='hsdropout')
-anesdf$class[anesdf$class==1]<-'hsdropout'
-anesdf$class[anesdf$class==0]<-'hsgrad+'
+########################################################
+########################################################
 
-#gender
-anesdf$gender_f<-NA
-tmp<-anesdf$gender==1
-anesdf$gender_f[tmp]<-'male'
-tmp<-anesdf$gender==2
-anesdf$gender_f[tmp]<-'female'
-tmp<-anesdf$gender==3
-anesdf$gender_f[tmp]<-'other'
+#load the CPS data
 
-#arrest
-anesdf$arrest_f<-NA
-tmp<-anesdf$everarrested==1
-anesdf$arrest_f[tmp]<-"everarrested"
-tmp<-anesdf$everarrested==2
-anesdf$arrest_f[tmp]<-"neverarrested"
+#helper funcitons
+isodd<-function(x) x%%2!=0
+iseven<-function(x) x%%2==0
+genfw<-function(x) { #takes columns you want, and generates fwf request  
+  #format has to be startcol,endcol,startcol,endcol,startcol,endcol...  
+  fwf<-c()  
+  for (i in 1:length(x)) {
+    if (i==1) 
+      fwf<-append(fwf,-(x[1]-1)) 
+    if (isodd(i) & i>1) {
+      if ((x[i]-x[i-1])>1) 
+        fwf<-append(fwf,-(x[i]-x[i-1])+1)
+    }
+    if (iseven(i)) 
+      fwf<-append(fwf,x[i]-x[i-1]+1)
+  }
+  if (fwf[1]==0) fwf<-fwf[-1] #if we're getting first col, need to do this 
+  return(fwf)
+}
 
-#if everyone who was black and missing was arrested?
-# anesdf$arrest_f[
-#   is.na(anesdf$arrest_f) &
-#     anesdf$race_f=='black' &
-#     !is.na(anesdf$race_f)
-# ]<-'everarrested'
+setwd(datadir); dir()
+tmpfname<-"cps_00015"
+
+#get info from the codebook
+setwd(datadir); dir()
+tmp<-readLines(paste0(tmpfname,".txt"))
+stline<-str_detect(tmp,"YEAR") %>% which %>% min
+endline<-str_detect(tmp,"UNION") %>% which %>% min
+if(!is.finite(stline) | !is.finite(endline))
+  stop('var missing')
+
+tmp<-tmp[stline:endline]
+tmp<-str_extract(tmp,"(.*?)\\sX\\s")
+colnames<-str_extract(tmp,"[A-Z0-9]+") %>% 
+  tolower
+locs<-str_extract(tmp,"(H|P)\\s+[0-9]+(\\-[0-9]+)?")
+locs<-str_replace(locs,"(H|P)\\s+","")
+stloc<-str_extract(locs,"^[0-9]+") %>%
+  as.numeric
+endloc<-str_extract(locs,"[0-9]+$") %>%
+  as.numeric
+
+#order stloc
+neworder<-order(stloc)
+colnames<-colnames[neworder]
+stloc<-stloc[neworder]
+endloc<-endloc[neworder]
+
+#need to generate fwf format for cols
+tmpmatrix<-matrix(
+  c(stloc,endloc),
+  ncol=2
+) 
+tmpfwf<-c(t(tmpmatrix))
+widths<-genfw(tmpfwf)
+types<-rep("i",length(colnames)) %>%
+  paste0(collapse="")
+types<-rep("integer",length(colnames))
 
 
-require(questionr)
-wtd.table(anesdf$arrest_f,weights=anesdf$weight_f) #46 mill
-
-#raceXclass
-anesdf$raceXclass<-paste0(
-  anesdf$black,"X",anesdf$class 
+#load the dataset
+require(LaF)
+raw<-laf_open_fwf(
+  filename=paste0(tmpfname,".dat"),
+  column_types=types,
+  column_names=colnames,
+  column_widths=widths
 )
-anesdf$raceXclass[
-  is.na(anesdf$black) |
-    is.na(anesdf$class)
-] <- NA
-tmp<-anesdf$raceXclass!='blackXhsdropout' &
-  !is.na(anesdf$raceXclass)
-anesdf$raceXclass[tmp]<-'other'
+cpsdf <- data.table(raw[])
+cpsdf$myid<-1:nrow(cpsdf)
+
+#recodings
+#agegroups 
+cpsdf[ age< 15, ageg_f := 1] 
+cpsdf[ age>=15 & age<18 , ageg_f := 2]
+cpsdf[ age>=18 & age<24 , ageg_f := 3] 
+cpsdf[ age>=24 & age<35 , ageg_f := 4]
+cpsdf[ age>=35 & age<50 , ageg_f := 5]
+cpsdf[ age>=50 & age<65 , ageg_f := 6]
+cpsdf[ age>=65 , ageg_f :=7]
+
+#sex
+cpsdf[ sex==1 , sex_f := 1] 
+cpsdf[ sex==2 , sex_f := 2] 
+
+#educ
+cpsdf[ educ%in%c(2:72), ed_f:= 1] #less than HS
+cpsdf[ educ %in%c(73), ed_f := 2] #HS grad
+cpsdf[ educ %in%c(80:110), ed_f :=3] #some college
+cpsdf[ educ %in%c(111:125), ed_f :=4] #college grad
+
+#race/hisp
+cpsdf[ , race_f := 4] #make everyone other
+cpsdf[ race==100 & hispan==0 , race_f := 1] #whites
+cpsdf[ race==200 & hispan==0, race_f := 2]
+cpsdf[ hispan!=0, race_f:=3]
+
+#emp
+cpsdf[ empstat%in%c(1:12,33), emp_f := 1] #employed/armed forces
+cpsdf[ empstat%in%c(20:22,31,32,34,35,36) , emp_f := 0] #nilf,unempoyed
+
+#union member/coverage
+cpsdf[ union==0, union_f:= NA_integer_ ]
+cpsdf[ union==1, union_f:=0  ]
+cpsdf[ union%in%c(2,3), union_f:= 1]
+weighted.mean(cpsdf$union_f,cpsdf$asecwt,na.rm=T) #11%
+
+#fix topcoding of income variables
+incvars<-names(cpsdf)[str_detect(names(cpsdf),'inc')]
+for(v in incvars) {
+  cpsdf[[v]][cpsdf[[v]]%in%c(999999999,99999999)]<-NA_integer_
+}
+
+#fix weights
+cpsdf$asecwt <- cpsdf$asecwt/10^4
+
+#summarize earnings
+cpsdf[
+  ,
+  earnings:=incwage + incbus + incfarm + incint + incdivid + incrent
+]
+
+#all men
+tmpdf1<-cpsdf[
+  emp_f==1 & 
+    ageg_f%in%c(3,4,5) & 
+    sex_f==1
+  ,
+  .(
+    earnings_avg=weighted.mean(earnings,asecwt),
+    earnings_median=weighted.median(earnings,asecwt),
+    earnings_20th=weighted.quantile(earnings,asecwt,p=0.20)
+  )
+]
+tmpdf1$group<-'all men'
+
+#arnings for all low-skilled men
+tmpdf2<-cpsdf[
+  ed_f==1 & 
+    emp_f==1 & 
+    ageg_f%in%c(3,4,5) & 
+    sex_f==1
+  ,
+  .(
+    earnings_avg=weighted.mean(earnings,asecwt),
+    earnings_median=weighted.median(earnings,asecwt),
+    earnings_20th=weighted.quantile(earnings,asecwt,p=0.20)
+  )
+]
+tmpdf2$group<-'all low-skilled men'
+
+#arnings for low-skilled Black men
+tmpdf3<-cpsdf[
+  ed_f==1 & 
+    race_f==2 &
+    emp_f==1 & 
+    ageg_f%in%c(3,4,5) & 
+    sex_f==1
+  ,
+  .(
+    earnings_avg=weighted.mean(earnings,asecwt),
+    earnings_median=weighted.median(earnings,asecwt),
+    earnings_20th=weighted.quantile(earnings,asecwt,p=0.20)
+  )
+]
+tmpdf3$group<-'all low-skilled black men'
 
 
-#summary stats
-
-#what % of blacks have been ever arrested
-tmp<-anesdf$black=='black'
-weighted.mean(
-  anesdf$arrest_f[tmp]=='everarrested',
-  anesdf$weight[tmp],
-  na.rm=T
+tmpdf<-rbind.fill(
+  tmpdf1,
+  tmpdf2,
+  tmpdf3
 )
-#about 20%.. 
+tmpdf
 
-#by race
-tmptable <- wtd.table(
-  anesdf$race_f,
-  anesdf$arrest_f,
-  weights=anesdf$weight
+
+#union membership by race, education
+100 * weighted.mean(cpsdf$union_f,cpsdf$asecwt,na.rm=T)
+100 * weighted.mean(cpsdf$union_f[cpsdf$ed_f==1],cpsdf$asecwt[cpsdf$ed_f==1],na.rm=T)
+tmpdf<-cpsdf[
+  ed_f%in%c(1) &
+  emp_f==1 & 
+    ageg_f%in%c(3,4,5) &
+    race_f%in%c(1,2) 
+  ,
+  .(
+    100 * weighted.mean(union_f,asecwt,na.rm=T)
+  )
+  ,
+  by=c(
+    'race_f',
+    'ed_f'#,
+    #'sex_f'
+  )
+]
+setkey(tmpdf,race_f,ed_f)
+tmpdf
+
+#summary of income and public support
+#by wage quantiles
+
+#look only at eligible wage earners who reside in the
+#in the poorest 20% of households
+require(spatstat)
+tmpdf<-cpsdf
+tmpf2<-ewcdf(tmpdf$hhincome,tmpdf$asecwth)
+tmpdf$hhincome_q <- round(100 * tmpf2(tmpdf$hhincome))
+tmpdf<-tmpdf[hhincome_q<20 & !is.na(incwage)]
+
+#indicate those 
+supportvars<-c(
+  "incss",
+  "incwelfr",
+  "incretir",
+  "incssi",
+  "incunemp",
+  "incwkcom",
+  "incvet",
+  "incsurv",
+  "incdisab"
 )
-tmptable/apply(tmptable,1,sum)
-#blacks are not really overrepresented
-#amongst the ranks of the ever arrested
-#whites are slightly underrepresented,
-#but not by much.. (70% vs. 67%)
+tmpdf$zerosupport<-apply(tmpdf[,supportvars,with=F],1,function(x) sum(x==0)==length(x))
 
-#########################################################
-#########################################################
+plotdf <- tmpdf[
+  race_f%in%c(1,2) & 
+    ageg_f%in%c(3,4,5)
+  ,
+  .(
+    earnings=weighted.mean(incwage,asecwt),
+    income=weighted.mean(
+      incwage + 
+        incbus + 
+        incfarm + 
+        incint +
+        incdivid + 
+        incrent +
+        inceduc + 
+        incchild + 
+        #incalim + 
+        incasist +
+        incother + 
+        incrann + 
+        incpens
+      ,asecwt),
+    support=weighted.mean(
+      incss + 
+        incwelfr + 
+        incretir + 
+        incssi + 
+        incunemp + 
+        incwkcom + 
+        incvet + 
+        incsurv + 
+        incdisab
+      ,asecwt),
+    taxcredits=weighted.mean(
+      eitcred + 
+        ctccrd + 
+        actccrd,
+      asecwt),
+    pct_zerosupport=100 * sum(
+      zerosupport*asecwt
+    )/sum(asecwt)
+  )
+  ,
+  by=c(
+    'race_f',
+    'sex_f'
+  )
+]
+setkey(plotdf,race_f,sex_f)
+plotdf$pct_earnings_support <- 100 * (plotdf$support + plotdf$taxcredit)/(plotdf$earnings + plotdf$taxcredit)
+plotdf$earnings_support <- plotdf$support + plotdf$taxcredit
 
+plotdf$race_f <- factor(
+  plotdf$race_f,
+  levels=c(1,2),
+  labels=c('White','Black')
+)
+plotdf$sex_f <- factor(
+  plotdf$sex_f,
+  levels=c(1,2),
+  labels=c('M','F')
+)
+# # plotdf$ed_f <- factor(
+# #   plotdf$ed_f,
+# #   levels=c(1,4),
+# #   labels=c('<HS','>=College')
+# # )
+# plotdf$quantile <- factor(
+#   plotdf$quantile,
+#   levels=c('Poor','Other','Rich')
+# )
+plotdf$id<-paste(
+  plotdf$race_f,
+  plotdf$sex_f,
+  sep=', '
+)
+tmporder<-order(plotdf$earnings_support)
+tmplevels<-plotdf$id[tmporder]
+plotdf$id<-factor(plotdf$id,tmplevels)
 
+plotdf$color<-'darkgrey'
+plotdf$color[plotdf$race_f=='Black' & plotdf$sex_f=='M']<-'red'
+tmpcolors<-c('darkgrey','red')
+names(tmpcolors)<-levels(plotdf$color)
 
+g.tmp <- ggplot(
+  plotdf,
+  aes(
+    x=id,
+    y=earnings_support,
+    fill=color
+  )
+) +
+  geom_bar(
+    stat='identity',
+    width=0.5,
+    color='black'
+  ) +
+  scale_fill_manual(
+    guide='none',
+    values=tmpcolors
+  ) +
+  coord_flip() +
+  theme_bw() +
+  xlab("") +
+  scale_y_continuous(
+    breaks=c(0,2000,4000),
+    labels=c('$0','$2,000','$4,000')
+  ) +
+  ylab("\nAverage Level of Annual Income Support")
 
+setwd(outputdir)
+ggsave(
+  'fig_support.png',
+  g.tmp,
+  width=8/1.5,
+  height=3/1.5
+)
 
+########################################################
+########################################################
 
+#simple simulation of how returns_punishment are dictated by 
+#PLE and simple decomposition of punishment into components
 
+returns_punishment <- function(
+    returns_lawabidinglife,
+    pcaught,
+    returns_crime
+) {
+  #returns_lawabidinglife have to be higher than lawdefying (the PLE)
+  #assume some kidn of fixed constant, just for illustration
+  returns_lawdefyinglife <- 0.95 * returns_lawabidinglife
+  #this is equation for returns to punishment (simple decomposition)
+  #returns_lawdefyinglife/pcaught - (returns_crime*(1-pcaught)/(pcaught))
+  returns_lawdefyinglife/pcaught - returns_crime/pcaught + returns_crime
+}
 
+tmpdf<-expand.grid(
+  returns_lawabidinglife = seq(0,10,length.out=51),
+  pcaught=seq(0,1,length.out=11),
+  returns_crime=seq(0,10,length.out=51)
+)
+tmpdf$i<-1:nrow(tmpdf)
+tmpdf$returns_punishment <- sapply(tmpdf$i,function(i) {
+  thisrow<-tmpdf[i,]
+  returns_punishment(
+    thisrow$returns_lawabidinglife,
+    thisrow$pcaught,
+    thisrow$returns_crime
+  )
+})
 
+#this one depends on the value of the others
+#easily verifiable by tkaing the derivative.. 
+tmp<-tmpdf$returns_lawabidinglife==5 &
+  tmpdf$returns_crime==10
+plotdf<-tmpdf[tmp,]
+g.tmp<-ggplot(
+  plotdf,
+  aes(
+    x=pcaught,
+    y=returns_punishment
+  )
+) + 
+  geom_line(
+    size=1
+  ) +
+  theme_bw() +
+  xlab('\np(caught)') +
+  ylab('E(returns|punishment)\n') +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+setwd(outputdir)
+ggsave(
+  'fig_dpcaught.png',
+  g.tmp,
+  width=9/2,
+  height=6/2
+)
 
+#this one doesn't depend on value of returns to crime, 
+#so we can just choose an arbitrary number
+tmp<-tmpdf$pcaught==c(0.5) &
+  tmpdf$returns_crime==median(tmpdf$returns_crime) 
+plotdf<-tmpdf[tmp,]
+g.tmp<-ggplot(
+  plotdf,
+  aes(
+    x=returns_lawabidinglife,
+    y=returns_punishment
+  )
+) + 
+  geom_line(
+    size=1
+  ) +
+  theme_bw() +
+  xlab('\nE(returns|law-abiding life)') +
+  ylab('E(returns|punishment)\n') + 
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+setwd(outputdir)
+ggsave(
+  'fig_dlawabiding.png',
+  g.tmp,
+  width=9/2,
+  height=6/2
+)
+
+#this doesn't depend on the value of returns to LAL, 
+#so pick an arbitrary value
+tmp<-tmpdf$pcaught==median(tmpdf$pcaught) &
+  tmpdf$returns_lawabidinglife==median(tmpdf$returns_lawabidinglife) 
+plotdf<-tmpdf[tmp,]
+g.tmp <- ggplot(
+  plotdf,
+  aes(
+    x=returns_crime,
+    y=returns_punishment
+  )
+) + 
+  geom_line(
+    size=1
+  ) +
+  theme_bw() +
+  xlab('\nE(returns|crime)') +
+  ylab('E(returns|punishment)\n') + 
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
+setwd(outputdir)
+ggsave(
+  'fig_dcrime.png',
+  g.tmp,
+  width=9/2,
+  height=6/2
+)
 
 
 

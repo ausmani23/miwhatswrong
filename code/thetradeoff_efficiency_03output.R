@@ -38,6 +38,9 @@ setwd(filesdir); dir()
 load('thetradeoff_data.RData')
 sumdf <- fread('thetradeoff_sumdf.csv')
 
+#########################################################
+#########################################################
+
 tmp<-sumdf$choice=='Pessimistic about Police'
 sumdf$choice[tmp]<-'Pessimistic About Police'
 tmp<-sumdf$choice=='Optimistic about Prison'
@@ -48,20 +51,20 @@ setwd(codedir); dir()
 source('calculate_homicides.R')
 source('calculate_costsbenefits.R')
 
-
 #########################################################
 #########################################################
 
 #GET #'S OF THE EFFICIENT POINT
-
 sumdf[pointType=='fwbalance']
 sumdf[pointType=='statusquo']
 
-
 #########################################################
 #########################################################
 
-#PREFERRED SPECIFICATION
+#FIGURE
+
+#make a gradient graph
+#this graph colors the points by efficiency
 
 plotdf <- sumdf[
   moneysaved<=0 & 
@@ -85,20 +88,19 @@ plotdf$finalguess[tmp]<- 0
 extradf <- rbind.fill(
   solutiondf,
   data.frame(
-    y=incrateusa_2019,
-    x=10^5 * police_2019/pop_2019,
+    y=incrateusa_2021,
+    x=10^5 * police_2021/pop_2021,
     label='Mass Incarceration'
   )
 )
 extradf <- rbind.fill(
   extradf,
   data.frame(
-    x=0.75 * 10^5 * police_2019/pop_2019 ,
+    x=0.75 * 10^5 * police_2021/pop_2021,
     y=50, #in line w/ Scandinavia
     label='Defund'
   )
 )
-
 
 g.tmp <- 
   ggplot(
@@ -182,7 +184,9 @@ ggsave(
 #########################################################
 #########################################################
 
-#make a cool graph w/ arrows pointing in direction of efficiency
+#FIGURE
+
+#this graph has arrows pointing in the direction of the efficient point
 
 plotdf <- sumdf[
   myMethod=='stepwise' &
@@ -307,8 +311,10 @@ ggsave(
 #########################################################
 #########################################################
 
-#summarize how the efficient point changes
-#depending on which choices you make
+#FIGURE/TABLE
+
+#this graph summarizes how the efficient point changes
+#as you tweak the robustness checks.. 
 
 tmpdf<-sumdf[
   moneysaved<=0
@@ -340,7 +346,6 @@ g.tmp <- ggplot(
   aes(
     x=policerate,
     y=prisonrate,
-    label=choice,
     color=choice
   )
 ) +
@@ -361,10 +366,8 @@ g.tmp <- ggplot(
     linetype=2,
     arrow = arrow(length = unit(0.75, "cm"))
   ) +
-  geom_label_repel() +
   geom_point(
-    size=2,
-    color='black'
+    size=2
   ) +
   # facet_wrap(
   #   ~ choicetype
@@ -399,16 +402,19 @@ ggsave(
   height=6*1.5
 )
 
+#ALSO MAKE A TABLE
 
-#also make a table
 tmplevels<-c(
   'Preferred Choices',
   'Not Stepwise',
   'Lives Lost',
-  'Pessimistic About Police',
-  'Optimistic About Prison',
   'Changing Elasticities',
-  'Prison-Year Deflated'
+  'Prison-Year Deflated',
+  'Police Lead to Lots of Arrests',
+  'Arrest = 1 Week in Prison',
+  'Prison Does Reduce Crime',
+  'More Police More Police Violence',
+  'Police Dont Reduce Crime'
 ) %>% rev
 plotdf$choice <- factor(plotdf$choice,tmplevels)
 g.tmp <- ggplot(
@@ -442,15 +448,97 @@ ggsave(
 #########################################################
 #########################################################
 
-#summarizing the consequences of the first world balance
+#FIGURE 
+
+#how does the efficient point change
+#as we increase the harms of state violence?
+
+#these are all the worlds w/ full consequences
+setwd(filesdir)
+mydf <- fread('thetradeoff_consequences.csv')
+
+#limit to those which save money
+these.is <- sumdf$i[sumdf$moneysaved<=0] %>% unique
+mydf<-mydf[i%in%these.is,]
+
+#limit to default choices
+mydf <- mydf[
+    myMethod=='stepwise' &
+    myUnits=='yearsoflife' &
+    myOrientation=='bestguess' &
+    myElasticities=='constant' & 
+    myPrizChoice=='standard'
+]
+
+weights<-c(1:10)
+tmpdf <- lapply(weights,function(w) {
+  #w<-1
+  returndf<-mydf[
+    ,
+    .(
+      sum=finalguess[name=='prisoners'] * w +
+        finalguess[name=='arrests'] * w +
+        finalguess[name=='policekillings'] * w +
+        finalguess[name=='homicides'] +
+        finalguess[name=='othercrime']
+    )
+    ,
+    by=c('i')
+  ]
+  returndf$w<-w
+  returndf
+}) %>% rbind.fill
+
+tmpdf <- merge(
+  tmpdf,
+  unique(
+    mydf[,c('i','prisonrate','policerate')]
+  )
+) %>% data.table
+
+plotdf <- by(tmpdf,tmpdf$w,function(df) {
+  #df<-tmpdf[tmpdf$w==1,]
+  tmp<-df$sum==min(df$sum)
+  data.frame(
+    w=df$w[tmp],
+    policerate=df$policerate[tmp],
+    prisonrate=df$prisonrate[tmp]
+  )
+}) %>% rbind.fill
+
+ggplot(
+  plotdf,
+  aes(
+    x=policerate,
+    y=prisonrate,
+    label=w
+  )
+) +
+  geom_label() +
+  # scale_x_continuous(
+  #   breaks=c(0,250,500,750),
+  #   limits=c(0,750)
+  # ) +
+  # scale_y_continuous(
+  #   breaks=c(0,250,500,750,1000),
+  #   limits=c(0,1000)
+  # ) +
+  theme_bw()
+
+#########################################################
+#########################################################
+
+#TABLE
+
+#summarize the consequences of the first world balance, in full
 setwd(filesdir); dir()
 plotdf <- fread('thetradeoff_consequences.csv')
 
-#quick fix for typo
-tmp<-plotdf$choice=='Pessimistic about Police'
-plotdf$choice[tmp]<-'Pessimistic About Police'
-tmp<-plotdf$choice=='Optimistic about Prison'
-plotdf$choice[tmp]<-'Optimistic About Prison'
+# #quick fix for typo
+# tmp<-plotdf$choice=='Pessimistic about Police'
+# plotdf$choice[tmp]<-'Pessimistic About Police'
+# tmp<-plotdf$choice=='Optimistic about Prison'
+# plotdf$choice[tmp]<-'Optimistic About Prison'
 
 tmp <- str_detect(
   plotdf$name,
@@ -520,10 +608,13 @@ tmplevels<-c(
   'Preferred Choices',
   'Not Stepwise',
   'Lives Lost',
-  'Pessimistic About Police',
-  'Optimistic About Prison',
   'Changing Elasticities',
-  'Prison-Year Deflated'
+  'Prison-Year Deflated',
+  'Police Lead to Lots of Arrests',
+  'Arrest = 1 Week in Prison',
+  'Prison Does Reduce Crime',
+  'More Police More Police Violence',
+  'Police Dont Reduce Crime'
 )
 plotdf$choice <- factor(plotdf$choice,tmplevels)
 
@@ -616,69 +707,91 @@ dist4/dist2  #0.87
 #########################################################
 #########################################################
 
-#make a graph showing where the efficient points are
-#if all we care about is homicides and nothing else
-setwd(filesdir); dir()
-sumdf <- fread('thetradeoff_consequences.csv')
-sumdf <- sumdf[name%in%c('homicides','othercrime','resources'),]
-sumdf<-spread(
-  sumdf,
-  name,
-  finalguess
-) %>% data.table
-sumdf$crime<-sumdf$homicides+sumdf$othercrime
+#FIGURE
 
-#what's the best we can do, w/ the homicide rate? 
-# setwd(filesdir); dir()
-# sumdf <- fread('thetradeoff_consequences.csv')
-# sumdf <- sumdf[name%in%c('homicides_raw','resources'),]
-# sumdf<-spread(
-#   sumdf,
-#   name,
-#   finalguess
-# ) %>% data.table
-# tmpdf<-sumdf[
-#   resources<=0
-#   ,
-#   .(homicides=min(homicides_raw))
-#   ,
-#   by=c('choice')
-# ]
-#most optimistic is 11,000
-#but more likely it seems to be a decline in about 4,000
+#make a fairness graph
+#based on A, B, C, D, E
 
-tmpdf<-sumdf[
-  resources<=0
-  ,
-  .(crime=min(crime))
-  ,
-  by=c('choice')
-]
-plotdf1 <- merge(sumdf,tmpdf,by=c('choice','crime'))
-plotdf1$choicetype <- 'Constrained by $'
+#A (gangster) cares about all costs
+#B (grandmother) cares about crime
+#C (young black poor man) cares about crime and arrest
+#D (young black rich man) cares about arrest
+#E (rest of us) care about resources
 
-tmpdf<-sumdf[
-  ,
-  .(crime=min(crime))
-  ,
-  by=c('choice')
-]
-plotdf2 <- merge(sumdf,tmpdf,by=c('choice','crime'))
-plotdf2$choicetype <- 'Unconstrained by $'
-
-plotdf <- rbind.fill(
-  plotdf1,
-  plotdf2
+characters<-list(
+  'A'=c('prisoners','arrests','homicides','othercrime','policekillings'),
+  'B'=c('homicides','othercrime'),
+  'C'=c('homicides','othercrime','arrests','policekillings'),
+  'D'=c('arrests'),
+  'E'=c('arrests','incarceration'),
+  'F'=c('incarceration'),
+  'G'=c('homicides','othercrime','incarceration'),
+  'H'=c('resources_raw')
 )
 
+setwd(filesdir); dir()
+sumdf <- fread('thetradeoff_consequences.csv')
+
+#get info for table, just restricted to the worlds
+
+tabdf<-lapply(names(characters),function(c) {
+  #c<-'D'
+  print(c)
+  tmp<-names(characters)==c
+  cats <- characters[tmp] %>% unlist %>% unname
+  tmpdf<-sumdf[
+    pointType!='2d' &
+      choice=='Preferred Choices' &
+      name%in%c(cats,'resources_raw')
+  ]
+  tmpdf<-tmpdf[
+    ,
+    .(
+      finalguess=sum(finalguess),
+      prisonrate=unique(prisonrate),
+      policerate=unique(policerate)
+    )
+    ,
+    by='pointType'
+  ]
+  c(c,tmpdf$pointType[order(tmpdf$finalguess)])
+})
+
+plotdf<-lapply(names(characters),function(c) {
+  #c<-'richminority'
+  print(c)
+  tmp<-names(characters)==c
+  cats <- characters[tmp] %>% unlist %>% unname
+  these.is<-sumdf$i[sumdf$name=='resources_raw' & sumdf$finalguess<0]
+  tmpdf<-sumdf[
+    i%in%these.is &
+    choice=='Preferred Choices' &
+      name%in%c(cats,'resources_raw')
+  ]
+  tmpdf<-tmpdf[
+    ,
+    .(
+      finalguess=sum(finalguess),
+      prisonrate=unique(prisonrate),
+      policerate=unique(policerate)
+    )
+    ,
+    by='i'
+  ]
+  data.frame(
+    character=c,
+    policerate=tmpdf$policerate[tmpdf$finalguess==min(tmpdf$finalguess)],
+    prisonrate=tmpdf$prisonrate[tmpdf$finalguess==min(tmpdf$finalguess)]
+  )
+}) %>% rbind.fill
 
 g.tmp <- ggplot(
   plotdf,
   aes(
     x=policerate,
     y=prisonrate,
-    label=choice,
-    color=choice
+    label=character,
+    color=character
   )
 ) +
   stat_function(
@@ -699,12 +812,9 @@ g.tmp <- ggplot(
     arrow = arrow(length = unit(0.75, "cm"))
   ) +
   geom_label_repel() +
-  geom_point(
-    size=2,
-    color='black'
-  ) +
-  facet_wrap(
-    ~ choicetype
+  geom_point() +
+  scale_color_discrete(
+    guide='none'
   ) +
   scale_x_continuous(
     breaks=c(0,250,500,750),
@@ -714,24 +824,18 @@ g.tmp <- ggplot(
     breaks=c(0,250,500,750,1000),
     limits=c(0,1000)
   ) +
-  geom_hline(
-    yintercept=quantile(rates_othcountries,c(0,0.5,1)),
-    linetype=2,
-    alpha=0.5,
-    color='grey'
-  ) +
   xlab('\nPolice per 100,000') +
   ylab('Prisoners per 100,000\n') +
   theme_bw()
-
-
+  
 setwd(outputdir)
 ggsave(
-  filename='fig_theefficientpoints_crime.png',
+  filename='fig_thefairpoints_graph.png',
   plot=g.tmp,
-  width=10*1.5,
+  width=5*1.5,
   height=6*1.5
 )
+
 
 
 #########################################################

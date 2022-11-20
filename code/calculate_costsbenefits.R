@@ -33,28 +33,39 @@ tmpdf<-fread('SHR76_20.csv')
 mean_age_homvictim <- mean(tmpdf$OffAge[tmpdf$OffAge!="999"])
 
 #mean age of those killed by police
-tmpdf<-fread('fatalencounters.csv')
-mean_age_policevictim <- suppressWarnings(mean(as.numeric(tmpdf$`Subject's age`),na.rm=T))
-tmptab<-table(tmpdf$`Date (Year)`)
-policekillings_2019 <- tmptab[names(tmptab)==2019] #taken from fatalencounters.org
-#number killed in 2019
+tmpdf<-fread('fatalencounters.csv') #from fatalencounters.org
+mean_age_policevictim <- suppressWarnings(mean(as.numeric(tmpdf$Age),na.rm=T))
+tmpdf$year<-str_extract(tmpdf$`Date of injury resulting in death (month/day/year)`,"[0-9]{4}$") %>%
+  as.numeric
+tmptab<-table(tmpdf$year)
+policekillings_2019 <- tmptab[names(tmptab)==2019] 
+policekillings_2020 <- tmptab[names(tmptab)==2020]
+policekillings_2021 <- tmptab[names(tmptab)==2021]
 
 #this runs some numbers on what the likely effects
 #of hiring an additional police officer on prisoners is
 setwd(codedir); source('thetradeoff_fwbalancecalcs.R')
+
 #########################################################
 #########################################################
 
 #this function takes an x-y coordinate
 #and returns costs+benefits, based on our assumptions
 calculate_costsbenefits <- function(
-  policerate_proposed,
-  prisonrate_proposed,
-  myUnits=c('yearsoflife','lives'), #whether years of life lost or lives lost
-  myMethod=c('stepwise','direct'), #whether step or direct
-  myOrientation=c('bestguess','pessimistic'), #whether bestestimates or pessimistic
-  myElasticities=c('constant','changing'), #whether changing or constant
-  myPrizChoice=c('standard','deflated')
+    policerate_proposed,
+    prisonrate_proposed,
+    myUnits=c('yearsoflife','lives'), #whether years of life lost or lives lost
+    myMethod=c('stepwise','direct'), #whether step or direct
+    myOrientation=c(
+      'bestguess',
+      'pessimistic_police_crime', # you think police do not really reduce crime
+      'pessimistic_police_arrests', #you think police will result in lots of arrests
+      'pessimistic_arrest', #you think arrest is really bad
+      'pessimistic_police_killings', #you think police killings will increase
+      'optimistic_prison' #you think prison reduces crime
+    ), 
+    myElasticities=c('constant','changing'), #whether changing or constant
+    myPrizChoice=c('standard','deflated')
 ) {
   
   # policerate_proposed = 370
@@ -64,14 +75,22 @@ calculate_costsbenefits <- function(
   # myOrientation = 'pessimistic_police'
   # myElasticities = 'constant'
   # myPrizChoice = 'standard'
+  # i<-1
+  # policerate_proposed = loopdf$policerate[i]
+  # prisonrate_proposed = loopdf$prisonrate[i]
+  # myMethod = loopdf$myMethod[i]
+  # myUnits = loopdf$myUnits[i]
+  # myOrientation = loopdf$myOrientation[i]
+  # myElasticities = loopdf$myElasticities[i]
+  # myPrizChoice = loopdf$myPrizChoice[i]
   
   #this is what we are proposing to do to prisoners, police
-  prisoners_proposed <- (prisonrate_proposed * pop_2019)/10^5
-  police_proposed <- (policerate_proposed * pop_2019)/10^5 
-  prisoners_added <- (prisoners_proposed - prisoners_2019)
-  prisoners_added_percent <- 1 - (prisoners_added + prisoners_2019)/prisoners_2019
-  police_added <- (police_proposed - police_2019)
-  police_added_percent <- (police_added + police_2019)/police_2019 - 1
+  prisoners_proposed <- (prisonrate_proposed * pop_2021)/10^5
+  police_proposed <- (policerate_proposed * pop_2021)/10^5 
+  prisoners_added <- (prisoners_proposed - prisoners_2021)
+  prisoners_added_percent <- (prisoners_added + prisoners_2021)/prisoners_2021 - 1
+  police_added <- (police_proposed - police_2021)
+  police_added_percent <- (police_added + police_2021)/police_2021 - 1
   
   #now, we have to account for the fact that, if we are hiring more police officers,
   #our decline in prisoners is actually going to have to be effectively more aggressive
@@ -79,17 +98,18 @@ calculate_costsbenefits <- function(
   #and so you have to 'effectively' increase incarceration by a bit more..
   
   #how many extra prisoners are effectively added depends on how many police officers we have hired
-  #NB: edit to make the negative incarceration impossible, later
   extrapriz_frompolice_thisestimate <- ifelse(
-    myOrientation=='pessimistic_police',
+    myOrientation=='pessimistic_police_arrests', #if pessimistic..
     extrapriz_frompolice['pessimistic_police'],
     extrapriz_frompolice['bestguess']
   )
-  prisoners_added_effective <- prisoners_added + -1 * (police_added * extrapriz_frompolice_thisestimate)
+  prisoners_added_effective <- 
+    prisoners_added + #the original added
+    -1 * (police_added * extrapriz_frompolice_thisestimate) #the extra decarceration necessary
   prisonrate_proposed_effective <- 
-    round(10^5 * (prisoners_2019 + prisoners_added_effective)/pop_2019)
-  prisoners_added_percent_effective <- 1 - 
-    (prisoners_added_effective + prisoners_2019)/prisoners_2019
+    round(10^5 * (prisoners_2021 + prisoners_added_effective)/pop_2021)
+  prisoners_added_percent_effective <- 
+    (prisoners_added_effective + prisoners_2021)/prisoners_2021 - 1
   
   #nb: this can result in us feeding a negative value for prisonrate_proposed
   #these are, in effect, impossible points to reach. so we skip the whole routine
@@ -159,7 +179,7 @@ calculate_costsbenefits <- function(
   #and our pessimistic about police guess to be the max of the two
   arrests_perofficer <-
     ifelse(
-      myOrientation%in%c('bestguess','optimistic_prison'),
+      myOrientation%in%c('bestguess','pessimistic_police_arrests'),
       mean(arrests_perofficer_base),
       max(arrests_perofficer_base)
     )
@@ -169,7 +189,7 @@ calculate_costsbenefits <- function(
   
   #what does an arrest mean in terms of lives lost?
   #bestguess: about as bad as a day in prison; pessimistic, as bad as a week
-  arrest_to_prisoneryear <- ifelse(myOrientation=='pessimistic_police',1/52,1/365)
+  arrest_to_prisoneryear <- ifelse(myOrientation=='pessimistic_arrest',1/52,1/365)
   
   if(myUnits=='yearsoflife') {
     
@@ -195,21 +215,21 @@ calculate_costsbenefits <- function(
   if(myMethod=='stepwise') {
     
     consequences_raw[['homicides']] <- calculate_homicides(
-      priz0 = round(10^5 * prisoners_2019/pop_2019),
+      priz0 = round(10^5 * prisoners_2021/pop_2021),
       prizf = prisonrate_proposed_effective,
-      pol0 = 10^5 * police_2019/pop_2019,
+      pol0 = 10^5 * police_2021/pop_2021,
       polf = policerate_proposed,
-      y0 = homicides_2019,
+      y0 = homicides_2021,
       delta = 1,
       myOrientation=myOrientation,
       myElasticities=myElasticities
-    ) - homicides_2019
+    ) - homicides_2021
     
   } else if(myMethod=='direct') {
     
     consequences_raw[['homicides']] <-
-      homicides_2019 * (police_added_percent * getPolElast(myOrientation=myOrientation)) +
-      homicides_2019 * (prisoners_added_percent_effective * getPrizElast(myOrientation=myOrientation))
+      homicides_2021 * (police_added_percent * getPolElast(myOrientation=myOrientation)) +
+      homicides_2021 * (prisoners_added_percent_effective * getPrizElast(myOrientation=myOrientation))
     
   } 
   
@@ -234,9 +254,7 @@ calculate_costsbenefits <- function(
   #robbery
   #assault
   #rape
-  
   #and then we'd need to convert these to 'years of life'
-  
   #for now, as shorthand, we take our cues from Chalfin and McCary 2017
   #and assume that homicide is ~70% of the costs of crime
   consequences_raw[['othercrime']] <-
@@ -245,37 +263,39 @@ calculate_costsbenefits <- function(
     consequences[['homicides']] * (995-693)/995 
   
   #now we have a homicide rate, we can calculate police kilings
-  if(myOrientation%in%c('bestguess','optimistic_prison')) {
+  if(myOrientation!='pessimistic_police_killings') {
     
+    polkdf$y<-log(0.1 + polkdf$polkillings_percapita)
+    polkdf$x<-log(polkdf$polhomratio)
     m.polk <- lm(
       data=polkdf,
-      formula = polkillings_percapita ~ polhomratio
+      formula = y ~ x
     ) 
-    homicides_cfactual <- homicides_2019 + consequences_raw[['homicides']]
+    homicides_cfactual <- homicides_2021 + consequences_raw[['homicides']]
     #if prediction is <0 homicides, needs adjusting.. 
     if(homicides_cfactual<=0)
       homicides_cfactual<-0.1
-    homrate_cfactual <- 10^5 * homicides_cfactual/pop_2019
-    police_cfactual <- police_2019 + police_added
+    #homrate_cfactual <- 10^5 * homicides_cfactual/pop_2021
+    police_cfactual <- police_2021 + police_added
     # #ditto for police, but this just makes it strange
     # if(police_cfactual<=0) {
     #   police_cfactual<-0.1
     # }
     predictdf<-data.frame(
-      polhomratio=log((police_cfactual)/homicides_cfactual)
+      x=log(police_cfactual/homicides_cfactual)
     )
-    tmp<-which(polkdf$countryname=='United States of America')
+    tmp<-which(polkdf$countryname=='USA')
     usa_residual <- m.polk$residuals[tmp]
     policekillings_cfactual <- 
-      exp(predict(m.polk,newdata=predictdf) + usa_residual) * pop_2019 
+      exp(predict(m.polk,newdata=predictdf) + usa_residual) * pop_2021/10^6
     consequences_raw[['policekillings']] <- 
-      unname(policekillings_cfactual) - unname(policekillings_2019)
+      unname(policekillings_cfactual) - unname(policekillings_2021)
     
     
-  } else if (myOrientation=='pessimistic_police') {
+  } else if (myOrientation=='pessimistic_police_killings') {
     
     consequences_raw[['policekillings']] <- 
-      (police_added_percent * policekillings_2019) 
+      (police_added_percent * policekillings_2021) 
     
   }
   
@@ -294,10 +314,11 @@ calculate_costsbenefits <- function(
   
   
   #(4) change in resources, if any
-  consequences[['resources']] <- round(
+  consequences_raw[['resources']] <- round(
     (prisoners_added * cost_prisoner + 
        police_added * cost_policeofficer) / 10^9
   )
+  
   
   #consequences
   finalguess <- sum(unlist(consequences) %>% unname)
@@ -314,7 +335,7 @@ calculate_costsbenefits <- function(
   #return this
   list(
     finalguess = finalguess,
-    moneysaved = consequences[['resources']],
+    moneysaved = consequences_raw[['resources']],
     consequencesdf = consequencesdf
   )
   

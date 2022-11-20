@@ -68,6 +68,7 @@ getPrizElast<-function(
   # hom<-6
   
   if(myElasticities=='changing') {
+    
     if(prizhomratio<prizhomratio_leader) {
       y <- -0.15
     } else if (prizhomratio>=prizhomratio_leader & prizhomratio<prizhomratio_median) {
@@ -143,7 +144,7 @@ getPolElast<-function(
   #(b) leans very heavily on an old, OLS-based study by Marvell and Moody
   #so we prefer (a) to (b)
   #our pessimsitic estimate will be the bottom of the Chalfin CI
-  y <- ifelse(myOrientation=='pessimistic_police',-0.67 + 2*0.24,-0.67)
+  y <- ifelse(myOrientation=='pessimistic_police_crime',-0.67 + 2*0.24,-0.67)
   y
 }
 
