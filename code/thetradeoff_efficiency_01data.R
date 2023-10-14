@@ -528,7 +528,7 @@ police_added <- (solutiondf$x - unique(plotdf$police_rate))/10^5 * pop_2021 #how
 prisoners_added <- (solutiondf$y - incrateusa_2021)/10^5 * pop_2021 #how many fewer prisoners
 (prisoners_added)/prisoners_2021
 (police_2021+police_added)/police_2021
-
+stop()
 #ILLUSTRATE
 
 g.tmp <- g.tmp + 

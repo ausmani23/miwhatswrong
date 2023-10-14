@@ -793,14 +793,81 @@ ggsave(
   height=6/2
 )
 
+########################################################
+########################################################
 
+#simple graph to illustrate theory of crime
 
+tmpdf<-data.frame(
+  percentile=0:100
+)
+tmpdf$returns_law <- 
+  log(tmpdf$percentile + 1) + 0
+tmpdf$returns_crime <- 
+  -1 * log( 0.01 * tmpdf$percentile + 1) + 2.5
 
+#for shading
+shadedf<-tmpdf[tmpdf$returns_crime>tmpdf$returns_law,]
 
+#for plotting
+plotdf<-pivot_longer(
+  tmpdf,
+  cols = c('returns_law','returns_crime'),
+  names_to = "var",
+  values_to = "val"
+)
 
+plotdf$var<-factor(
+  plotdf$var,
+  levels=c('returns_crime','returns_law'),
+  labels=c('Law-Defying','Law-Abiding')
+)
 
+tmpcolors<-c('red','blue') 
+names(tmpcolors) <- names(plotdf$var)
 
+g.tmp <- ggplot(
+  plotdf
+) +
+  geom_line(
+    aes(
+      x=percentile,
+      y=val,
+      color=var
+      ),
+    size=1
+  ) +
+  scale_color_manual(
+    name="",
+    values=tmpcolors
+  ) +
+  geom_ribbon(
+    data=shadedf,
+    aes(
+      x=percentile,
+      ymin=returns_law,
+      ymax=returns_crime
+    ),
+    fill='darkgreen',
+    alpha=0.4
+  ) + 
+  xlab("\nSocial Stratum") +
+  ylab("Average Returns\n") +
+  theme_bw() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = 'top',
+    legend.direction = 'horizontal'
+  )
 
+setwd(outputdir)
+ggsave(
+  'fig_theoryofcrime.png',
+  g.tmp,
+  width=9/2,
+  height=6/2
+)
 
 
 

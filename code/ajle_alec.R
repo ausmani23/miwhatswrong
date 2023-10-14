@@ -38,61 +38,66 @@ require(ggrepel)
 #########################################################
 
 #get data 
+# setwd(datadir); dir()
+# hpundf<-fread('histpundf_221009.csv')
+# 
+# #restrict to big countries
+# popdf<-hpundf[
+#   year>2000 &
+#     statistic=='population' &
+#     maindata==T
+#   ,
+#   .(population=mean(value,na.rm=T))
+#   ,
+#   by=c('cownum')
+# ]
+# bigcows<-popdf$cownum[popdf$population>(3 * 10^6) & !is.na(popdf$population)]
+# hpundf$bigcountries<-hpundf$cownum%in%bigcows
+# hpundf<-hpundf[bigcountries==T]
+# 
+# #get the stats
+# fulldf<-hpundf[
+#   advanced==T &
+#     maindata==T &
+#     year>2015 &
+#     statistic%in%c(
+#       'homicides',
+#       'prisoners',
+#       'police',
+#       'population'
+#     ) &
+#     #compare only to the UNODC observations
+#     #that we have for other countries, for police
+#     (
+#       (
+#       statistic=='police' & 
+#         str_detect(source,'UNODC|Burnham')
+#     ) 
+#     |
+#       statistic!='police'
+#     )
+#     
+#   ,
+#   .(
+#     period = 'post2015',
+#     value = median(value,na.rm=T),
+#     advanced =unique(advanced)
+#   )
+#   ,
+#   by=c(
+#     'countryname',
+#     'statistic'
+#   )
+# ]
+# fulldf<-spread(fulldf,statistic,value)
+# 
+# #fix the E+W pop number https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/bulletins/internationalmigrationenglandandwales/census2021#:~:text=2.-,Migration%20between%20censuses,2011%20to%2059%2C597%2C542%20in%202021.
+# fulldf$population[fulldf$countryname=='England and Wales']<-59597542
+# 
+# setwd(datadir); dir()
+# fwrite(fulldf,'ajle_alec.csv')
 setwd(datadir); dir()
-hpundf<-fread('histpundf_221009.csv')
-
-#restrict to big countries
-popdf<-hpundf[
-  year>2000 &
-    statistic=='population' &
-    maindata==T
-  ,
-  .(population=mean(value,na.rm=T))
-  ,
-  by=c('cownum')
-]
-bigcows<-popdf$cownum[popdf$population>(3 * 10^6) & !is.na(popdf$population)]
-hpundf$bigcountries<-hpundf$cownum%in%bigcows
-hpundf<-hpundf[bigcountries==T]
-
-#get the stats
-fulldf<-hpundf[
-  advanced==T &
-    maindata==T &
-    year>2015 &
-    statistic%in%c(
-      'homicides',
-      'prisoners',
-      'police',
-      'population'
-    ) &
-    #compare only to the UNODC observations
-    #that we have for other countries, for police
-    (
-      (
-      statistic=='police' & 
-        str_detect(source,'UNODC|Burnham')
-    ) 
-    |
-      statistic!='police'
-    )
-    
-  ,
-  .(
-    period = 'post2015',
-    value = median(value,na.rm=T),
-    advanced =unique(advanced)
-  )
-  ,
-  by=c(
-    'countryname',
-    'statistic'
-  )
-]
-fulldf<-spread(fulldf,statistic,value)
-
-#fix the E+W pop number https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/bulletins/internationalmigrationenglandandwales/census2021#:~:text=2.-,Migration%20between%20censuses,2011%20to%2059%2C597%2C542%20in%202021.
-fulldf$population[fulldf$countryname=='England and Wales']<-59597542
+fulldf <- fread('ajle_alec.csv')
 
 #########################################################
 #########################################################

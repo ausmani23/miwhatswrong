@@ -1,8 +1,8 @@
 # What's Wrong with Mass Incarceration?
 
-This repository contains the code that generates results and figures for *What's Wrong with Mass Incarceration?* by Christopher Lewis and Adaner Usmani. To do more than browse the code (i.e., to replicate our results), you will need the source data. We do not store these on the Github, for proprietary and storage reasons. Contact Adaner for more information. 
+This repository contains the code that generates results and figures for *What's Wrong with Mass Incarceration?* by Christopher Lewis and Adaner Usmani. To do more than browse the code, you will need the source data. We do not store these on the Github. Contact Adaner for more information. Replication code for the book will only be ready when the book is finished. 
 
-To replicate figures and calculations for 'The Injustice of Under-Policing', see ajle_figs.R. 
+To replicate figures and calculations for 'The Injustice of Under-Policing', see ajle_figs.R. You can download the source data on which this file relies from [this link](https://www.dropbox.com/sh/hizk8j97vqk1swd/AACaVDMvJ_x9QLTrWvfsXzoLa?dl=0). (We cannot make the original data from the History of Punishment available until that dataset is public, but this folder includes collapsed versions of the different vintages of the dataset that we use in the AJLE paper.) Please contact Adaner with questions about how to run the code. 
 
 ## Folder and File Structure
 
@@ -22,7 +22,8 @@ To replicate figures and calculations for 'The Injustice of Under-Policing', see
     + thetradeoff_fairness_04output.R - Outputs figures based on the calculations above
     
     **MISCELLANEOUS**
-    + ajle_figs.R - Additional replication code for 'The Injustice of Under-Policing'. Note that Figure 6 and associated calculations are replicated by thetradeoff_fairness*.R. 
+    + ajle_figs.R - Replication code for 'The Injustice of Under-Policing'. Note that Figure 6 and associated calculations are replicated by the 'thetradeoff_fairness' files. Because these files continue to be updated for the book, I've put archived versions of them in the repository. These have the suffix '_ajlecopy'. 
+	+ ajle_alec.R - Replication code for our response to Alec Karakantsis. 
     
     
 ## Notes

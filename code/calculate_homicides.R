@@ -18,7 +18,7 @@ pctchange_priz/pctchange_police
 #what this means: 
 #the assumption that prisons and police are, dollar for dollar, 
 #equally efficient in the world of the first-world balance
-#is a reason to believe that the elasticity of crime wrt homicide
+#is a reason to believe that the elasticity of crime wrt police
 #is roughly -0.67, if we take -0.05 to be prison elasticity there
 -0.05 * pctchange_priz/pctchange_police # = -0.67
 #(note that if we take it to be anything larger, it implies increaseing elasticities
@@ -157,7 +157,6 @@ getPolElast<-function(
 #########################################################
 #########################################################
 
-
 #what will this function do? 
 
 #we start at a given point
@@ -185,7 +184,6 @@ getPolElast<-function(
 
 #we move, repetitively, towards our final destination in this way
 
-
 calculate_homicides <- function(
   #necessary inputs
   priz0, #starting incarceration rate
@@ -205,13 +203,22 @@ calculate_homicides <- function(
 ) {
   
   
+  priz0 = round(10^5 * prisoners_2019/pop_2019)
+  prizf = prisonrate_proposed_effective
+  pol0 = 10^5 * (police_2019)/pop_2019
+  polf = 10^5 * (police_2019+500000)/pop_2019
+  y0 = homicides_2019
+  delta = 1
+  myOrientation='bestguess'
+  myElasticities='constant'
+  
   # priz0<-700
   # prizf<-211
   # pol0<-212
   # polf<-250
   # y0<-20000
   # delta<-1
-  # epriz0<-eprizf<-epol0<-epolf<-NULL
+  epriz0<-eprizf<-epol0<-epolf<-NULL
   # myOrientation='bestguess'
   
   if(is.null(eprizf) & is.null(epriz0))  {
@@ -219,13 +226,16 @@ calculate_homicides <- function(
     epol0 <- getPolElast(pol0,y0)
   }
   
-  #starting point
-  spriz0 = y0/priz0 * epriz0
-  spol0 = y0/pol0 * epol0
+    #starting points for the change
+  #i.e., for a one-unit change in prison/police rate, 
+  #what will happen (given the assumed elasticities)
+  #to the number of homicides, assuming we're starting at y0
+  spriz0 = y0/priz0 * epriz0 #simplifies from: y0 * (((priz0 + 1)/priz0) - 1) * epriz0
+  spol0 = y0/pol0 * epol0  #ditto..
   
   #set up the ticks and the loop
-  chg_pol = polf - pol0
-  chg_priz = prizf - priz0
+  chg_pol = polf - pol0 #this is the change in the police rate
+  chg_priz = prizf - priz0 #this is the change in the prison rate
   
   #the way we will calculate the change in homicides
   #is by slowly adjusting the number of prisoners and police
@@ -234,16 +244,19 @@ calculate_homicides <- function(
   #in these, we are basically just changing one; so this if-else loop
   #helps detect which one this is, and makes that one the centerpriece
   #of the counterfactual reform
+  
   if(chg_pol==0 & chg_priz ==0) {
     
     #in case the proposed destination
     #is the same as the starting point
     return(y0)
     
-  } else if (abs(chg_pol)>=abs(chg_priz)) {
+    #if the change in police is larger than the change in prisoners
+  } else if ( abs(chg_pol)>=abs(chg_priz) ) {
     
     tmpseq.i <- 1:(abs((polf - pol0)/delta))
     
+    #if the change in police is larger...
   } else if (abs(chg_pol)<abs(chg_priz)) {
     
     tmpseq.i <- 1:(abs((prizf - priz0)/delta))
@@ -285,8 +298,9 @@ calculate_homicides <- function(
     y_change_pol <- spols[i-1] * delta_pol
     ys[i] <- ys[i-1] + y_change_priz + y_change_pol
     
-    #now we adjust the elasticities,
+    #now we adjust the elasticities
     #based on our assumptions about these elasticities
+    #i.e., whether they are constant or changing
     eprizs[i] <- getPrizElast(
       prizs[i-1]/ys[i-1],
       myElasticities=myElasticities,
@@ -304,7 +318,9 @@ calculate_homicides <- function(
     # eprizs[i] <- eprizs[i-1] + epriz_delta
     # epols[i] <- epols[i-1] + epol_delta
     
-    #and then, based on this, the slopes
+    #and then, based on the new level of homicides
+    #we recalculate what the change in homicides will be
+    #for a one-unit change in the rate of police/prison
     sprizs[i] <- ys[i]/prizs[i] * eprizs[i]
     spols[i] <- ys[i]/pols[i] * epols[i]
     

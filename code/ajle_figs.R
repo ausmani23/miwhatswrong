@@ -38,101 +38,106 @@ require(ggrepel)
 #########################################################
 
 #get data 
+# setwd(datadir); dir()
+# fulldf<-fread('histpun.csv')
+# fulldf<-fulldf[
+#   !is.na(advanced) & 
+#     year>2015 &
+#     statistic%in%c(
+#       'homicides',
+#       'prisoners',
+#       'police'
+#     ) &
+#     unit=='percapita' &
+#     population>5* 10^6
+#   ,
+#   .(
+#     period = 'post2015',
+#     value = median(value,na.rm=T),
+#     advanced =unique(advanced)
+#   )
+#   ,
+#   by=c(
+#     'countryname',
+#     'statistic'
+#   )
+# ]
+# fulldf<-spread(fulldf,statistic,value) %>% data.table
+# setwd(datadir); dir()
+# fwrite(fulldf,'ajle_fulldf.csv')
 setwd(datadir); dir()
-fulldf<-fread('histpun.csv')
-fulldf<-fulldf[
-  !is.na(advanced) & 
-    year>2015 &
-    statistic%in%c(
-      'homicides',
-      'prisoners',
-      'police'
-    ) &
-    unit=='percapita' &
-    population>5* 10^6
-  ,
-  .(
-    period = 'post2015',
-    value = median(value,na.rm=T),
-    advanced =unique(advanced)
-  )
-  ,
-  by=c(
-    'countryname',
-    'statistic'
-  )
-]
-fulldf<-spread(fulldf,statistic,value)
+fulldf<-fread('ajle_fulldf.csv')
 
 #########################################################
 #########################################################
 
-#add data
-setwd(datadir); dir()
-extradf<-fread('histpundf_national_220128.csv')
+# #add data
+# setwd(datadir); dir()
+# extradf<-fread('histpundf_national_220128.csv')
 
 #need this data point
-homicides_2006 <- extradf[
-  cownum==2 & statistic=='homicides' & year==2006,
-  median(value)
-]
-
-extradf<-extradf[
-  !is.na(advanced) & 
-    year>2015 & 
-    statistic%in%c(
-      'population',
-      'homicides',
-      'police',
-      'arrests',
-      'arrests_homicide',
-      'convictions_homicide',
-      'prisoners'
-    )
-  ,
-  .(
-    advanced = unique(advanced),
-    period = 'post2015',
-    value = median(value,na.rm=T)
-  )
-  ,
-  by=c(
-    'countryname',
-    'statistic'
-  )
-]
-extradf<-spread(extradf,statistic,value)
-
-
-#big countries only
-extradf<-extradf[population>4*10^6]
-
-# #we only want countries for which we have all four
-# tmp<-apply(extradf,1,function(x) sum(is.na(x)))==0
-# extradf<-extradf[tmp,]
+homicides_2006 <- 17309 #comes from this dataset
+# 
+# extradf<-extradf[
+#   !is.na(advanced) & 
+#     year>2015 & 
+#     statistic%in%c(
+#       'population',
+#       'homicides',
+#       'police',
+#       'arrests',
+#       'arrests_homicide',
+#       'convictions_homicide',
+#       'prisoners'
+#     )
+#   ,
+#   .(
+#     advanced = unique(advanced),
+#     period = 'post2015',
+#     value = median(value,na.rm=T)
+#   )
+#   ,
+#   by=c(
+#     'countryname',
+#     'statistic'
+#   )
+# ]
+# extradf<-spread(extradf,statistic,value) %>% data.table
+# 
+# 
+# #big countries only
+# extradf<-extradf[population>4*10^6]
+# 
+# # #we only want countries for which we have all four
+# # tmp<-apply(extradf,1,function(x) sum(is.na(x)))==0
+# # extradf<-extradf[tmp,]
+# 
+# setwd(datadir); dir()
+# fwrite(extradf,'ajle_extradf.csv')
+setwd(datadir); dir()
+extradf<-fread('ajle_extradf.csv')
 
 #########################################################
 #########################################################
 
-#what sources are we relying on
-maindf<-fread('histpundf_national_220128.csv')
-countries<-unique(fulldf$countryname,extradf$countryname)
-statistics<-c(
-  'population',
-  'prisoners',
-  'policekillings',
-  'homicides',
-  'police',
-  'arrests',
-  'arrests_homicide',
-  'convictions_homicide'
-)
-
-maindf[
-  countryname%in%countries &
-    statistic%in%statistics,
-  'source'
-] %>% table %>% sort
+# #what sources are we relying on
+#maindf<-fread('histpundf_national_220128.csv')
+# countries<-unique(fulldf$countryname,extradf$countryname)
+# statistics<-c(
+#   'population',
+#   'prisoners',
+#   'policekillings',
+#   'homicides',
+#   'police',
+#   'arrests',
+#   'arrests_homicide',
+#   'convictions_homicide'
+# )
+# maindf[
+#   countryname%in%countries &
+#     statistic%in%statistics,
+#   'source'
+# ] %>% table %>% sort
 
 #########################################################
 #########################################################
@@ -256,7 +261,8 @@ arrests_homicides_2019 <- tmpdf$total[tmpdf$offense=="Murder and nonnegligent ma
 #########################################################
 #########################################################
 
-#figure 1: police per capita and prisoners per capita
+#FIGURE 1: police per capita and prisoners per capita
+
 plotdf<-fulldf[
   !is.na(police) & 
     !is.na(prisoners) &
@@ -360,7 +366,7 @@ solutiondf<-data.frame(
   prisoners=y_intersect,
   countryname='FWB',
   usa=T
-  )
+)
 
 plotdf<-rbind.fill(
   plotdf,
@@ -439,7 +445,8 @@ ggsave(
 #########################################################
 
 
-#figure 2: police per homicide and prisoners per homicide
+#FIGURE 2: police per homicide and prisoners per homicide
+
 plotdf<-fulldf[
   !is.na(police) & 
     !is.na(prisoners) &
@@ -525,57 +532,65 @@ mydf<-plotdf
 #########################################################
 #########################################################
 
-# POLICE KILLINGS)
+# FIGURE 5: POLICE KILLINGS
+# 
+# setwd(datadir); dir()
+# plotdf<-fread('histpundf_national_220128.csv')
+# 
+# # #get avg in rest of developed world
+# # tmpdf<-plotdf[
+# #   countryname!='United States of America' &
+# #     advanced==T &
+# #     statistic=='policekillings',
+# #   mean(value),
+# #   by='countryname'
+# # ]
+# # mean(tmpdf$V1)
+# # median(tmpdf$V1)
+# 
+# plotdf<-plotdf[
+#   year>=1996 & #the modern period
+#     !is.na(advanced) &
+#     statistic%in%c(
+#       'policekillings',
+#       'population',
+#       'homicides',
+#       'police'
+#     )
+#   ,
+#   .(
+#     period = 'post1996',
+#     value = median(value,na.rm=T)
+#   )
+#   ,
+#   by=c(
+#     'countryname',
+#     'statistic'
+#   )
+# ]
+# plotdf<-spread(plotdf,statistic,value) %>% data.table
+# tmp<-plotdf$countryname=='United States of America'
+# plotdf$countryname[tmp]<-'USA'
+# 
+# #we only want countries for which we have all four
+# tmp<-apply(plotdf,1,function(x) sum(is.na(x)))==0
+# plotdf<-plotdf[tmp,]
+# 
+# setwd(datadir); dir()
+# fwrite(plotdf,'ajle_polkdf.csv')
 setwd(datadir); dir()
-plotdf<-fread('histpundf_national_220128.csv')
-
-#get avg in rest of developed world
-tmpdf<-plotdf[
-  countryname!='United States of America' & 
-    advanced==T &
-    statistic=='policekillings',
-  mean(value),
-  by='countryname'
-]
-mean(tmpdf$V1)
-median(tmpdf$V1)
-
-plotdf<-plotdf[
-  year>=1996 & #the modern period
-    !is.na(advanced) & 
-    statistic%in%c(
-      'policekillings',
-      'population',
-      'homicides',
-      'police'
-    )
-  ,
-  .(
-    period = 'post1996',
-    value = median(value,na.rm=T)
-  )
-  ,
-  by=c(
-    'countryname',
-    'statistic'
-  )
-]
-plotdf<-spread(plotdf,statistic,value)
-tmp<-plotdf$countryname=='United States of America'
-plotdf$countryname[tmp]<-'USA'
-
-#we only want countries for which we have all four
-tmp<-apply(plotdf,1,function(x) sum(is.na(x)))==0
-plotdf<-plotdf[tmp,]
+plotdf<- fread('ajle_polkdf.csv')
 
 #get some numbers
-
 plotdf[,c('countryname','policekillings')]
 
 #there is a negative relationship in logs
 #between police/homicide and police killings/capita
 plotdf$polhomratio <- plotdf$police/plotdf$homicide #log(plotdf$police/plotdf$homicides)
 plotdf$polkillings_percapita <- 10^6 * (0.1+plotdf$policekillings)/plotdf$population#log((0.1 + plotdf$policekillings)/plotdf$population)
+
+#store this for use below
+polkdf<-plotdf
 
 #identify usa
 plotdf$usa<-plotdf$countryname=='USA'
@@ -638,7 +653,7 @@ ggsave(
 #########################################################
 #########################################################
 
-#CLEARANCE RATE
+#FIGURE 3: CLEARANCE RATE
 
 plotdf<-extradf[advanced==T]
 
@@ -670,11 +685,6 @@ usa<-plotdf$countryname=='USA'
 crates_othcountries <- plotdf$clearance_rate2[!usa]
 crates_quantiles <- quantile(crates_othcountries,c(0.2,0.5,0.8),na.rm=T)
 plotdf$clearance_rate2[usa]/crates_quantiles[2]
-
-
-
-
-
 
 # setwd(outputdir)
 # write.csv(
@@ -723,7 +733,6 @@ plotdf$color[tmp]<-'blue'
 plotdf$color<-factor(plotdf$color)
 tmpcolors<-levels(plotdf$color)
 names(tmpcolors)<-levels(plotdf$color)
-
 
 #get median values for other countries
 tmp<-str_detect(plotdf$countryname,"USA")
@@ -774,8 +783,6 @@ g.tmp <- ggplot(
   xlab("") +
   ylab("") +
   theme_bw() 
-
-
 
 setwd(outputdir)
 ggsave(
@@ -838,6 +845,8 @@ ggsave(
 
 #########################################################
 #########################################################
+
+#FIGURE 4
 
 #plot arrests/homicide and prisoners/homicide
 #but add rows for blacks and whites in the US, separately
@@ -954,8 +963,6 @@ tmpdf<-plotdf[plotdf$var=='Certainty (Arrests/Homicides)']
 tmplevels<-tmpdf$countryname[order(-tmpdf$val)]
 plotdf$countryname <- factor(plotdf$countryname,tmplevels)
 
-
-
 g.tmp <- ggplot(
   plotdf,
   aes(
@@ -988,7 +995,6 @@ g.tmp <- ggplot(
   xlab("") +
   ylab("") +
   theme_bw() 
-
 
 setwd(outputdir)
 ggsave(
@@ -1053,35 +1059,116 @@ ggsave(
 #########################################################
 #########################################################
 
-#calculations for welfare section
+#CALCS FOR SECTION III. PRIORITIZING THE DISADVANTAGED
 
-arrests<-+ 7808300
-prisoners<- -1932000
-arrest_to_prisonyear<-3/365
-arrests_prisonyears <- arrests * arrest_to_prisonyear
+police_added <- +500000
+prisoners_added <- -2000000 #by design; i.e., what we propose
+arrests<-+ police_added * 15.6 #based on Chalfin's estimate that each police adds 15.6 arrests (i.e. 500,000 * 15.6)
+arrest_to_prisonyear<-3/365 #how bad is an arrest relative to a year in prison?
+arrests_prisonyears <- arrests * arrest_to_prisonyear #convert annual arrests to prison-years
+arrests_prisonyears/prisoners_added #compare annual reduction in arrests (in prison-years) to reduction in prison-years
+#about 3% of the reduction; we say 'not even 5%'
 
-arrests_prisonyears/prisoners
+prisonyear_to_lifeyear <- 1/2 #conservatively, suppose a year in prison is half a livfe
+arrests_lifeyears <- arrests_prisonyears * prisonyear_to_lifeyear #convert to life-years
+lifeyears_to_life <- 1/65 #convert to lives
+arrests_lives <- arrests_lifeyears * lifeyears_to_life #thus, this is the equivalent of about 500 lives
 
-prisonyear_to_lifeyear <-1/2
-arrests_lifeyears <- arrests_prisonyears * prisonyear_to_lifeyear
-lifeyears_to_life <- 1/65
-arrests_lives <- arrests_lifeyears * lifeyears_to_life
-homicides<--4240
-policekillings<--910
-homicides*40
-policekillings*40
+#what would happen to homicides?
+#many ways to calculate; take the simplest, 
+#which is just to apply the elasticities from the literature 
+#to police increase and prison decrease separately
 
+#calculate percent increase in police
+police_added_percent <- (police_2019 + police_added)/police_2019 - 1
+
+#calculate percent increase in prisoners
+#this is a bit tricker, since we need to take into
+#account the fact that each police officer adds some prison-years
+prisoners_added<- -2000000
+prisoners_added_effective <- 
+  prisoners_added + #the original removed
+  -1 * (
+    police_added * 
+      0.293 
+  ) 
+prisonrate_proposed_effective <- 
+  round(10^5 * (prisoners_2019 + prisoners_added_effective)/pop_2019)
+prisoners_added_percent_effective <- 
+  (prisoners_added_effective + prisoners_2019)/prisoners_2019 - 1
+
+#using these percents and the elasticities in the literature (FN 37)
+homicides_2019 * 
+  (
+    police_added_percent * -0.67 #chalfin and mccary 
+) + 
+  homicides_2019 * (
+    prisoners_added_percent_effective * -0.05 #low estimate from Donohue
+)
+#this yields an estimate of about 8,500 fewer homicides
+
+#in the piece we report a much less optimistic estimate of ~4,000 fewer homicides
+#this comes from applying the elasticities in stepwise fashion rather than directly
+#and assuming that the elasticities are constant
+#details are in 'calculate_homicides.R' (only the function is relevant, since we apply constant elasticities)
+setwd(codedir); source('calculate_homicides.R')
+homicides <- calculate_homicides(
+  priz0 = round(10^5 * prisoners_2019/pop_2019),
+  prizf = prisonrate_proposed_effective,
+  pol0 = 10^5 * police_2019/pop_2019,
+  polf = 10^5 * (police_2019+500000)/pop_2019,
+  y0 = homicides_2019,
+  delta = 1,
+  myOrientation='bestguess',
+  myElasticities='constant'
+) - homicides_2019
+
+#very rough guess about police killings, given this new pol/hom ratio
+polkdf$y<-log(0.1 + polkdf$polkillings_percapita)
+polkdf$x<-log(polkdf$polhomratio)
+m.polk <- lm(
+  data=polkdf,
+  formula = y ~ x
+) 
+homicides_cfactual <- homicides_2019 + homicides
+police_cfactual <- police_2019 + police_added
+predictdf<-data.frame(
+  x=log(police_cfactual/homicides_cfactual)
+)
+tmp<-which(polkdf$countryname=='USA')
+usa_residual <- m.polk$residuals[tmp]
+policekillings_cfactual <- 
+  exp(predict(m.polk,newdata=predictdf) + usa_residual) * pop_2019/10^6
+
+#best guess of police killings in 2019
+setwd(datadir); tmpdf<-fread('fatalencounters.csv') #from fatalencounters.org
+tmpdf$year<-str_extract(tmpdf$`Date of injury resulting in death (month/day/year)`,"[0-9]{4}$") %>%
+  as.numeric
+tmptab<-table(tmpdf$year)
+policekillings_2019 <- tmptab[names(tmptab)==2019] #1800 people killed in 2019
+policekillings <- 
+  unname(policekillings_cfactual) - 
+  unname(policekillings_2019) #860 fewer people killed by police
+homicides*40 #in years of life lost
+policekillings*40 #in years of life lost
+#if this causal inference isn't sound, and it just increases linearly
 
 #police and prisoners in TFWB
-police_fwb <- police_2019 + 500000
-homicides_fwb <- homicides_2019 - 4240
-prisoners_fwb <- prisoners_2019 -  2000000
-arrests_fwb <- arrests_2019 + 7808300
+police_fwb <- police_2019 + police_added
+homicides_fwb <- homicides_2019 + homicides
+prisoners_fwb <- prisoners_2019 - prisoners_added
+arrests_fwb <- arrests_2019 + arrests
 arrests_fwb/homicides_fwb
-arrests_fwb/homicides_fwb/linedf$medianval[linedf$var=='Certainty (Arrests/Homicides)']
-police_fwb/homicides_fwb
-10^5 *police_fwb/pop_2019
+arrests_fwb/homicides_fwb/ 
+  linedf$medianval[linedf$var=='Certainty (Arrests/Homicides)'] #fewer arrests/homicide than median in RoW
+police_fwb/homicides_fwb #about 80 police/homicide in FWB
+10^5 *police_fwb/pop_2019 #about 360 police/capita
+mydf[countryname=='Spain','police'] #this is basically identical to today's Spain
 
+#########################################################
+#########################################################
+
+#FIGURE 7
 
 #make the plot
 newdf<-data.frame(
@@ -1155,10 +1242,11 @@ ggsave(
 #########################################################
 #########################################################
 
-#TO REPLICATE CALCS AND FIGURES FROM SECTION IV. PRIORITIZING THE DISADVANTAGED
+#FIGURE 6
+#AND CALCS FROM SECTION IV. PRIORITIZING THE DISADVANTAGED
 
 setwd(codedir); dir()
-source("thetradeoff_fairness_01thearrested.R")
-source("thetradeoff_fairness_02theincarcerated.R")
-source("thetradeoff_fairness_03themurdered.R")
-source("thetradeoff_fairness_04output.R")
+source("thetradeoff_fairness_01thearrested_ajlecopy.R")
+source("thetradeoff_fairness_02theincarcerated_ajlecopy.R")
+source("thetradeoff_fairness_03themurdered_ajlecopy.R")
+source("thetradeoff_fairness_04output_ajlecopy.R")
