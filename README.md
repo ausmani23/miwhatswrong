@@ -2,7 +2,7 @@
 
 This repository contains the code that generates results and figures for *What's Wrong with Mass Incarceration?* by Christopher Lewis and Adaner Usmani. To do more than browse the code, you will need the source data. We do not store these on Github. Contact Adaner for more information. Replication files for the book will only be ready when the book is finished. 
 
-To replicate figures and calculations for 'The Injustice of Under-Policing', see ajle_figs.R. You can download the source data from [this link]. (We cannot make the original data from the History of Punishment available until that dataset is public, but this folder includes the specific data we rely on in the AJLE paper.) Please contact Adaner with questions about how to run the code or if you encounter trouble replicating any results.  
+To replicate figures and calculations for 'The Injustice of Under-Policing', see ajle_figs.R. You can download the source data from [this link](https://www.dropbox.com/sh/hizk8j97vqk1swd/AACaVDMvJ_x9QLTrWvfsXzoLa?dl=0). (We cannot make the original data from the History of Punishment available until that dataset is public, but this folder includes the specific data we rely on in the AJLE paper.) Please contact Adaner with questions about how to run the code or if you encounter trouble replicating any results.  
 
 ## Folder and File Structure
 
