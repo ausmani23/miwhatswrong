@@ -43,7 +43,7 @@ servepercent <- 0.475
 Eprisonyears_perdrugconviction <-servepercent * prisonyears_drug_2006/drugarrests_2006
 
 #now, let's do the same for index crimes
-#Table 1.6
+#numbers from Table 1.6
 convictions_state_violent_2006 <- 206140
 convictions_fed_violent_2006 <- 2451
 convictions_state_property_2006 <- 321570
@@ -80,7 +80,7 @@ Eprisonyears_perpropertyconviction <- servepercent * prisonyears_property_2006/p
 #and 1 fewer index arrest.. (this is worst case scenario)
 
 #how many of these additional arrests turn into prisoner-years
-#Table 1.6, again
+#numbers from Table 1.6, again
 drugconvictions_perarrest <- 405221/drugarrests_2006
 Eprisonyears_perdrugarrest <- drugconvictions_perarrest * Eprisonyears_perdrugconviction
 

@@ -30,6 +30,22 @@ codedir<-file.path(
   homedir,"code"
 )
 
+#for replication:
+#loop through and create these 
+#dirs if they don't exist
+dir_list<-c(
+  "data",
+  "files",
+  "output",
+  "code"
+)
+for (dir_name in dir_list) {
+  path <- file.path(homedir, dir_name)
+  if (!dir.exists(path)) {
+    dir.create(path, showWarnings = FALSE)
+  }
+}
+
 # setwd(homedir)
 # source('theme_black.R')
 require(ggrepel)

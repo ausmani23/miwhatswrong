@@ -21,6 +21,7 @@ pctchange_priz/pctchange_police
 #is a reason to believe that the elasticity of crime wrt police
 #is roughly -0.67, if we take -0.05 to be prison elasticity there
 -0.05 * pctchange_priz/pctchange_police # = -0.67
+
 #(note that if we take it to be anything larger, it implies increaseing elasticities
 #increasing elasticities is in fact compatible w/ chalfin finding that 
 #effect of prison does not diminish with increase in policing. 

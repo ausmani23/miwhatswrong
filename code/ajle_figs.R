@@ -30,6 +30,22 @@ codedir<-file.path(
   homedir,"code"
 )
 
+#for replication:
+#loop through and create these 
+#dirs if they don't exist
+dir_list<-c(
+  "data",
+  "files",
+  "output",
+  "code"
+)
+for (dir_name in dir_list) {
+  path <- file.path(homedir, dir_name)
+  if (!dir.exists(path)) {
+    dir.create(path, showWarnings = FALSE)
+  }
+}
+
 # setwd(homedir)
 # source('theme_black.R')
 require(ggrepel)
@@ -75,7 +91,7 @@ fulldf<-fread('ajle_fulldf.csv')
 # setwd(datadir); dir()
 # extradf<-fread('histpundf_national_220128.csv')
 
-#need this data point
+#need this data point (homicides in the USA in 2006)
 homicides_2006 <- 17309 #comes from this dataset
 # 
 # extradf<-extradf[
@@ -120,8 +136,8 @@ extradf<-fread('ajle_extradf.csv')
 #########################################################
 #########################################################
 
-# #what sources are we relying on
-#maindf<-fread('histpundf_national_220128.csv')
+#what sources are we relying on
+# maindf<-fread('histpundf_national_220128.csv')
 # countries<-unique(fulldf$countryname,extradf$countryname)
 # statistics<-c(
 #   'population',
@@ -134,6 +150,7 @@ extradf<-fread('ajle_extradf.csv')
 #   'convictions_homicide'
 # )
 # maindf[
+#   year>2015 & 
 #   countryname%in%countries &
 #     statistic%in%statistics,
 #   'source'
@@ -196,12 +213,13 @@ prispolratio_usa <- fulldf$prispolratio[usa]
 polhomratios_othcountries <- fulldf$polhomratio[!usa & advanced]
 polhomratios_quantiles <- quantile(polhomratios_othcountries,c(0.2,0.5,0.8),na.rm=T)
 polhomratio_usa <- fulldf$polhomratio[usa]
-(polhomratio_usa/polhomratios_quantiles[2]) 
+(polhomratio_usa/polhomratios_quantiles[2]) #1/9 the median in other countries
 
 #prishomratios in other coutnries
 prishomratio_othcountries <- fulldf$prishomratio[!usa & advanced]
 prishomratios_quantiles<-quantile(prishomratio_othcountries,c(0.2,0.5,0.8),na.rm=T)
 prishomratio_usa <- fulldf$prishomratio[usa]
+(prishomratio_usa/prishomratios_quantiles[2]) #just 1% above median value..
 
 #########################################################
 #########################################################
@@ -274,6 +292,7 @@ plotdf$prisoners[plotdf$countryname=='USA']<-
 plotdf$police[plotdf$countryname=='USA'] <- 
   10^5 * police_2019/pop_2019
 plotdf$usa<-plotdf$countryname=='USA'
+plotdf[usa==T,countryname:='United States of America']
 tmpsizes<-c(4,3)
 tmpalphas<-c(1,0.5)
 names(tmpsizes)<-names(tmpalphas)<-c(T,F)
@@ -294,6 +313,7 @@ g.tmp <- ggplot(
     alpha=usa
   )
 ) +
+  #geom_text() +
   geom_text_repel() +
   stat_function(
     fun=firstworld_fun,
@@ -341,11 +361,23 @@ ggsave(
   height=5
 )
 
+#comparison to the published AJLE figure
+setwd(datadir); dir()
+tmpdf<-fread('fig1_old.csv')
+names(tmpdf)<-c('countryname','police2','prisoners2')
+tmpdf<-merge(
+  plotdf,
+  tmpdf,
+  by='countryname'
+)
+cor(tmpdf$police,tmpdf$police2) #0.997
+cor(tmpdf$prisoners,tmpdf$prisoners2) #0.999
 
 #########################################################
 #########################################################
 
-#figure X: add the solution and the dotted line
+#add the solution and the dotted line
+
 cost_policeofficer <- 130000 #chaflin and mccary 2017, p. 182
 #cost_prisoner <- 31000 #roodman, conclusion
 cost_prisoner <- 33089 #chalfin and mccary 2017, p. 183
@@ -374,7 +406,6 @@ plotdf<-rbind.fill(
 )
 
 plotdf$countryname[plotdf$countryname%in%c('Germany')]<-""
-
 
 g.tmp <- ggplot(
   plotdf,
@@ -432,7 +463,6 @@ g.tmp <- ggplot(
     arrow = arrow(length = unit(0.10, "cm"))
   ) 
 
-
 setwd(outputdir)
 ggsave(
   filename='fig_policeprisoners_percapita_withsolution.png',
@@ -453,12 +483,13 @@ plotdf<-fulldf[
     advanced
 ]
 
-plotdf$prishomratio[plotdf$countryname=='United States of America']<-
+plotdf$prishomratio[plotdf$countryname=='USA']<-
   prisoners_2019/homicides_2019
-plotdf$polhomratio[plotdf$countryname=='United States of America'] <- 
+plotdf$polhomratio[plotdf$countryname=='USA'] <- 
   police_2019/homicides_2019
 plotdf$countryname[plotdf$countryname=='Germany 1990-2014'] <- 'Germany'
-plotdf$usa<-plotdf$countryname=='United States of America'
+plotdf$usa<-plotdf$countryname=='USA'
+plotdf[usa==T,countryname:='United States of America'] #for aesthetics
 tmpsizes<-c(4,3)
 tmpalphas<-c(1,0.5)
 names(tmpsizes)<-names(tmpalphas)<-c(T,F)
@@ -468,7 +499,6 @@ prispol_slope<-prispolratios_quantiles['50%']
 firstworld_fun <- function(x) prispol_slope * x
 prispol_slope_usa <- prisoners_2019/police_2019
 usa_fun <- function(x) prispol_slope_usa * x
-
 
 g.tmp<- ggplot(
   plotdf,
@@ -509,11 +539,11 @@ g.tmp<- ggplot(
   ) +
   scale_x_continuous(
     breaks=c(0,250,500,750),
-    limits=c(0,750)
+    limits=c(0,825)
   ) +
   scale_y_continuous(
     breaks=c(0,50,100,150),
-    limits=c(0,200)
+    limits=c(0,205)
   ) +
   xlab('\nPolice per Homicide') +
   ylab('Prisoners per Homicide\n') +
@@ -527,7 +557,23 @@ ggsave(
   height=5
 )
 
+#save out for use below
 mydf<-plotdf
+
+#comparison to the published AJLE figure
+setwd(datadir); dir()
+tmpdf<-fread('fig2_old.csv')
+names(tmpdf)<-c('countryname','polhomratio2','prishomratio2')
+tmpdf<-merge(
+  plotdf,
+  tmpdf,
+  by='countryname'
+)
+cor(tmpdf$polhomratio,tmpdf$polhomratio2) #0.98
+cor(tmpdf$prishomratio,tmpdf$prishomratio2) #0.96
+#key takeways are the same:
+#(1) us has median level of prishom
+#(2) us has lowest level of polhom
 
 #########################################################
 #########################################################
@@ -587,7 +633,9 @@ plotdf[,c('countryname','policekillings')]
 #there is a negative relationship in logs
 #between police/homicide and police killings/capita
 plotdf$polhomratio <- plotdf$police/plotdf$homicide #log(plotdf$police/plotdf$homicides)
-plotdf$polkillings_percapita <- 10^6 * (0.1+plotdf$policekillings)/plotdf$population#log((0.1 + plotdf$policekillings)/plotdf$population)
+plotdf$polkillings_percapita <- 10^6 * (
+  0.1+plotdf$policekillings #adding 0.1 so that countries with 0 police killings are included
+)/plotdf$population#log((0.1 + plotdf$policekillings)/plotdf$population)
 
 #store this for use below
 polkdf<-plotdf
@@ -667,16 +715,15 @@ plotdf$arrests_homicide[tmp] <- arrests_homicides_2019
 plotdf$police[tmp] <- police_2019
 
 #stats
-plotdf$polhomratio <- plotdf$police/plotdf$homicides
-plotdf$clearance_rate <- plotdf$arrests_homicide/
-  plotdf$homicides
-plotdf$police_efficiency <- plotdf$arrests_homicide/plotdf$police
+plotdf$polhomratio <- plotdf$police/plotdf$homicides #what we call police footprint
+plotdf$clearance_rate <- plotdf$arrests_homicide/plotdf$homicides #the clearance rate
+plotdf$police_efficiency <- plotdf$arrests_homicide/plotdf$police #what we callpolice focus
 
 #for #'s, look at convictions
 plotdf$clearance_rate2 <- plotdf$convictions_homicide/plotdf$homicides
 #https://bjs.ojp.gov/content/pub/pdf/fssc06st.pdf, table 1.6
 tmp<-plotdf$countryname=='USA'
-plotdf$clearance_rate2[tmp] <- 8816/homicides_2006
+plotdf$clearance_rate2[tmp] <- 8816/homicides_2006 #from 2006
 #back out police efficiency, using clearance rate and polhomratio
 plotdf$police_efficiency2 <- plotdf$clearance_rate2/plotdf$polhomratio
 
@@ -1063,13 +1110,13 @@ ggsave(
 
 police_added <- +500000
 prisoners_added <- -2000000 #by design; i.e., what we propose
-arrests<-+ police_added * 15.6 #based on Chalfin's estimate that each police adds 15.6 arrests (i.e. 500,000 * 15.6)
-arrest_to_prisonyear<-3/365 #how bad is an arrest relative to a year in prison?
-arrests_prisonyears <- arrests * arrest_to_prisonyear #convert annual arrests to prison-years
+arrests_added <-+ police_added * 15.6 #based on Chalfin's estimate that each police adds 15.6 arrests (i.e. 500,000 * 15.6)
+arrest_to_prisonyear<-3/365 #how do we weigh an arrest relative to a year in prison? assume it is about as bad as 3 days in prison
+arrests_prisonyears <- arrests_added * arrest_to_prisonyear #convert annual arrests to prison-years
 arrests_prisonyears/prisoners_added #compare annual reduction in arrests (in prison-years) to reduction in prison-years
 #about 3% of the reduction; we say 'not even 5%'
 
-prisonyear_to_lifeyear <- 1/2 #conservatively, suppose a year in prison is half a livfe
+prisonyear_to_lifeyear <- 1/2 #conservatively, suppose a year in prison is half a life
 arrests_lifeyears <- arrests_prisonyears * prisonyear_to_lifeyear #convert to life-years
 lifeyears_to_life <- 1/65 #convert to lives
 arrests_lives <- arrests_lifeyears * lifeyears_to_life #thus, this is the equivalent of about 500 lives
@@ -1085,26 +1132,31 @@ police_added_percent <- (police_2019 + police_added)/police_2019 - 1
 #calculate percent increase in prisoners
 #this is a bit tricker, since we need to take into
 #account the fact that each police officer adds some prison-years
+#calculations for this are at:
+setwd(codedir); source('thetradeoff_fwbalancecalcs.R')
+
 prisoners_added<- -2000000
 prisoners_added_effective <- 
   prisoners_added + #the original removed
   -1 * (
     police_added * 
-      0.293 
+      extrapriz_frompolice['bestguess']
   ) 
 prisonrate_proposed_effective <- 
   round(10^5 * (prisoners_2019 + prisoners_added_effective)/pop_2019)
 prisoners_added_percent_effective <- 
   (prisoners_added_effective + prisoners_2019)/prisoners_2019 - 1
+#this overstates how large the change will be in sentence length
+#since crime is also declining.. but we won't say anything about this here
 
 #using these percents and the elasticities in the literature (FN 37)
-homicides_2019 * 
-  (
+#we can calculate what is likely to happen to the number of homicides
+homicides_2019 *  (
     police_added_percent * -0.67 #chalfin and mccary 
-) + 
+  ) + 
   homicides_2019 * (
     prisoners_added_percent_effective * -0.05 #low estimate from Donohue
-)
+  )
 #this yields an estimate of about 8,500 fewer homicides
 
 #in the piece we report a much less optimistic estimate of ~4,000 fewer homicides
@@ -1112,7 +1164,7 @@ homicides_2019 *
 #and assuming that the elasticities are constant
 #details are in 'calculate_homicides.R' (only the function is relevant, since we apply constant elasticities)
 setwd(codedir); source('calculate_homicides.R')
-homicides <- calculate_homicides(
+homicides_added <- calculate_homicides(
   priz0 = round(10^5 * prisoners_2019/pop_2019),
   prizf = prisonrate_proposed_effective,
   pol0 = 10^5 * police_2019/pop_2019,
@@ -1122,15 +1174,16 @@ homicides <- calculate_homicides(
   myOrientation='bestguess',
   myElasticities='constant'
 ) - homicides_2019
+print(homicides_added)
 
 #very rough guess about police killings, given this new pol/hom ratio
-polkdf$y<-log(0.1 + polkdf$polkillings_percapita)
+polkdf$y<-log(0.1 + polkdf$polkillings_percapita) #adding 0.1 again, as above
 polkdf$x<-log(polkdf$polhomratio)
 m.polk <- lm(
   data=polkdf,
   formula = y ~ x
 ) 
-homicides_cfactual <- homicides_2019 + homicides
+homicides_cfactual <- homicides_2019 + homicides_added
 police_cfactual <- police_2019 + police_added
 predictdf<-data.frame(
   x=log(police_cfactual/homicides_cfactual)
@@ -1146,21 +1199,22 @@ tmpdf$year<-str_extract(tmpdf$`Date of injury resulting in death (month/day/year
   as.numeric
 tmptab<-table(tmpdf$year)
 policekillings_2019 <- tmptab[names(tmptab)==2019] #1800 people killed in 2019
-policekillings <- 
+policekillings_added <- 
   unname(policekillings_cfactual) - 
   unname(policekillings_2019) #860 fewer people killed by police
-homicides*40 #in years of life lost
-policekillings*40 #in years of life lost
+print(policekillings_added)
+homicides_added*40 #in years of life lost
+policekillings_added*40 #in years of life lost
 #if this causal inference isn't sound, and it just increases linearly
 
 #police and prisoners in TFWB
 police_fwb <- police_2019 + police_added
-homicides_fwb <- homicides_2019 + homicides
+homicides_fwb <- homicides_2019 + homicides_added
 prisoners_fwb <- prisoners_2019 - prisoners_added
-arrests_fwb <- arrests_2019 + arrests
+arrests_fwb <- arrests_2019 + arrests_added
 arrests_fwb/homicides_fwb
 arrests_fwb/homicides_fwb/ 
-  linedf$medianval[linedf$var=='Certainty (Arrests/Homicides)'] #fewer arrests/homicide than median in RoW
+  linedf$medianval[linedf$var=='Certainty (Arrests/Homicides)'] #still fewer arrests/homicide than median in RoW
 police_fwb/homicides_fwb #about 80 police/homicide in FWB
 10^5 *police_fwb/pop_2019 #about 360 police/capita
 mydf[countryname=='Spain','police'] #this is basically identical to today's Spain
