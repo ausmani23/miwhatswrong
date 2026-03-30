@@ -1,6 +1,8 @@
 # What's Wrong with Mass Incarceration?
 
-This repository contains the code that generates results and figures for *What's Wrong with Mass Incarceration?* by Christopher Lewis and Adaner Usmani. Contact Adaner for more information. Replication materials for the book will only be ready when the book is finished. 
+This repository contains the code that generates results and figures for *What's Wrong with Mass Incarceration?* by Christopher Lewis and Adaner Usmani. Contact Adaner for more information. Replication materials for the book will only be ready when the book is finished.
+
+**[Interactive Efficiency Calculator](https://ausmani23.github.io/miwhatswrong/)** (working prototype) — Explore trade-offs between policing, incarceration, and crime with adjustable assumptions. This is a tentative demo and should not be cited or relied upon.
 
 ## Folder and File Structure
 
@@ -16,8 +18,9 @@ This repository contains the code that generates results and figures for *What's
     + thetradeoff_fwbalancecalcs.R - Estimates how many prisoner-years are added by adding a police officer
 	+ calculate_homicides.R - Code for three lower-level functions on which these scripts depends. The main is 'calculate_homicides', which takes a starting point in the 2x2, an ending point in the 2x2, and estimates what is likely to happen to the # of homicides
     + calculate_costsbenefits.R - Code for function 'calculate_costsbenefits.R' which calculates all the costs and benefits for a point in this 2x2 space
-	
-    
+    + [Interactive Efficiency Calculator](https://ausmani23.github.io/miwhatswrong/) (working prototype) - Browser-based tool to explore the efficiency trade-offs with adjustable assumptions. Tentative demo; should not be cited or relied upon.
+
+
     **FAIRNESS**
     + thetradeoff_fairness_01thearrested - Calculates the share ever arrested, arrested in 2019, killed by the police
     + thetradeoff_fairness_02theincarcerated - Calculates the share imprisoned
