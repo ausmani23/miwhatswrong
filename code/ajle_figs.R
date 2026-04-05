@@ -1152,16 +1152,26 @@ prisoners_added_percent_effective <-
 #using these percents and the elasticities in the literature (FN 37)
 #we can calculate what is likely to happen to the number of homicides
 homicides_2019 *  (
-    police_added_percent * -0.67 #chalfin and mccary 
-  ) + 
+  police_added_percent * -0.67 #chalfin and mccary 
+) + 
   homicides_2019 * (
     prisoners_added_percent_effective * -0.05 #low estimate from Donohue
   )
 #this yields an estimate of about 8,500 fewer homicides
 
+###1/2026 update
+#above uses linear approximation
+#but for large percentage increases, this is not a good idea
+#it is better to use log-log calculation
+homicides_2019 - (
+  homicides_2019 * ((1+police_added_percent) ^ (-0.67)) * 
+    ( ( 1 + prisoners_added_percent_effective %>% unname) ^ (-0.05) )
+)
+#this suggests a decline of 4,000, which is like what we report in the piece (see below)
+
 #in the piece we report a much less optimistic estimate of ~4,000 fewer homicides
 #this comes from applying the elasticities in stepwise fashion rather than directly
-#and assuming that the elasticities are constant
+#and assuming that the elasticities are constant..
 #details are in 'calculate_homicides.R' (only the function is relevant, since we apply constant elasticities)
 setwd(codedir); source('calculate_homicides.R')
 homicides_added <- calculate_homicides(
