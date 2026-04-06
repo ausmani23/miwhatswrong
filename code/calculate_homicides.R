@@ -200,7 +200,9 @@ calculate_homicides <- function(
   epriz0=NULL, #elasticity of incarceration at start
   eprizf=NULL, #elasticity of incarceration at end
   epol0=NULL, #elasticity of police at start
-  epolf=NULL #elasticity of police at end
+  epolf=NULL, #elasticity of police at end
+  myPolFunctionalForm=c('loglog','linear'), #Chalfin et al 2022: linear means constant absolute effect
+  myLinearPolBeta=-0.1 #Chalfin et al 2022: homicides averted per officer hired (0.06-0.1)
 ) {
   
   
@@ -228,11 +230,17 @@ calculate_homicides <- function(
   }
   
     #starting points for the change
-  #i.e., for a one-unit change in prison/police rate, 
+  #i.e., for a one-unit change in prison/police rate,
   #what will happen (given the assumed elasticities)
   #to the number of homicides, assuming we're starting at y0
   spriz0 = y0/priz0 * epriz0 #simplifies from: y0 * (((priz0 + 1)/priz0) - 1) * epriz0
-  spol0 = y0/pol0 * epol0  #ditto..
+  if(myPolFunctionalForm=='linear') {
+    #Chalfin et al 2022: constant absolute effect per officer
+    #convert from per-officer to per-unit-police-rate (1 rate unit = pop/100k officers)
+    spol0 = myLinearPolBeta * pop_2021/10^5
+  } else {
+    spol0 = y0/pol0 * epol0  #log-log: slope = Y/X * elasticity
+  }
   
   #set up the ticks and the loop
   chg_pol = polf - pol0 #this is the change in the police rate
@@ -323,12 +331,23 @@ calculate_homicides <- function(
     #we recalculate what the change in homicides will be
     #for a one-unit change in the rate of police/prison
     sprizs[i] <- ys[i]/prizs[i] * eprizs[i]
-    spols[i] <- ys[i]/pols[i] * epols[i]
-    
+    #in linear mode, police slope stays constant (each officer has same absolute effect)
+    #in log-log mode, slope = Y/X * elasticity (absolute effect shrinks as X grows)
+    if(myPolFunctionalForm=='linear') {
+      spols[i] <- spol0
+    } else {
+      spols[i] <- ys[i]/pols[i] * epols[i]
+    }
+
+    #floor at zero (relevant for linear mode with large police increases)
+    if(ys[i] <= 0) {
+      ys[i] <- 0
+      break
+    }
+
   }
-  
-  #ys[1+max(tmpseq.i)]
-  return(ys[1+max(tmpseq.i)])
+
+  return(max(ys[1+max(tmpseq.i)], 0))
   
 }
 

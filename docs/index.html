@@ -121,6 +121,37 @@
   .result-line .val { font-weight: 600; }
   .result-line .val.good { color: #2e7d32; }
   .result-line .val.bad { color: #c62828; }
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-top: 0.4rem;
+  }
+  .results-table th {
+    text-align: right;
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    color: #666;
+    padding: 0.2rem 0.3rem;
+    border-bottom: 1px solid #ccc;
+  }
+  .results-table th:first-child { text-align: left; }
+  .results-table td {
+    padding: 0.2rem 0.3rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .results-table td:first-child {
+    text-align: left;
+    font-weight: 500;
+  }
+  .results-table .good { color: #2e7d32; font-weight: 600; }
+  .results-table .bad { color: #c62828; font-weight: 600; }
+  .results-table tr.total-row td {
+    border-top: 2px solid #3366cc;
+    font-weight: 700;
+  }
 
   .ref-points {
     margin-top: 1rem;
@@ -221,6 +252,23 @@
   .assumptions-group .explainer {
     font-size: 0.72rem;
   }
+  .sub-header {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9c27b0;
+    margin: 0.8rem 0 0.4rem 0;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .intro-text {
+    max-width: 800px;
+    margin: 0.8rem auto 0;
+    font-size: 0.82rem;
+    color: #ccc;
+    line-height: 1.6;
+  }
 
   @media (max-width: 900px) {
     .main { flex-direction: column; }
@@ -234,6 +282,7 @@
   <h1>The Inefficiency of Mass Incarceration</h1>
   <p>Explore trade-offs in criminal justice policy. How do changes in policing and incarceration affect overall welfare?
     Based on <em>What's Wrong with Mass Incarceration?</em> by Christopher Lewis &amp; Adaner Usmani.</p>
+  <p class="intro-text">This calculator estimates the net welfare effect of shifting U.S. police and prison rates from their current levels. Use the <strong>Policy Choices</strong> sliders on the left to set a proposed police and prison rate, then examine the heatmap and breakdown on the right. The heatmap shows how net welfare varies across the full policy space; the white star marks the optimal point. All estimates depend on assumptions about how police and prisons affect crime, and how to weigh different harms. You can adjust these under <strong>Assumptions</strong> below. Every parameter has a default grounded in the empirical literature, but you can explore how conclusions change under alternative values.</p>
 </header>
 
 <div class="main">
@@ -281,14 +330,36 @@
     <div class="section-header assumptions"><span>Assumptions</span></div>
 
     <div class="assumptions-group">
+
+      <div class="sub-header">Crime Reduction</div>
+
       <div class="control-group">
-        <label>Police Effect on Homicides</label>
+        <label>Police Functional Form</label>
+        <select id="polFunctionalForm" data-default="loglog">
+          <option value="loglog" selected>Log-Log (diminishing absolute effect)</option>
+          <option value="linear">Linear (constant absolute effect)</option>
+        </select>
+        <p class="explainer">Log-log: each additional officer has a smaller absolute effect. Linear: each officer reduces crime by the same fixed amount (Chalfin et al. 2022).</p>
+      </div>
+
+      <div class="control-group" id="polElastGroup">
+        <label>Police Effect on Homicides (Elasticity)</label>
         <div class="slider-row">
           <input type="range" id="polElast" min="-1.00" max="0" value="-0.67" step="0.01" data-default="-0.67">
           <span class="slider-val" id="polElastVal">&minus;0.67</span>
           <button class="reset-btn" data-for="polElast" title="Reset to default">&#x21ba;</button>
         </div>
         <p class="explainer">Elasticity: 1% more police &rarr; X% fewer homicides (Chalfin &amp; McCary 2017: &minus;0.67)</p>
+      </div>
+
+      <div class="control-group" id="linearPolBetaGroup" style="display:none;">
+        <label>Police Effect on Homicides (per officer)</label>
+        <div class="slider-row">
+          <input type="range" id="linearPolBeta" min="-0.20" max="0" value="-0.10" step="0.01" data-default="-0.10">
+          <span class="slider-val" id="linearPolBetaVal">&minus;0.10</span>
+          <button class="reset-btn" data-for="linearPolBeta" title="Reset to default">&#x21ba;</button>
+        </div>
+        <p class="explainer">Each officer hired averts this many homicides. Chalfin et al. 2022: &minus;0.06 (ASG IV) to &minus;0.10 (COPS IV)</p>
       </div>
 
       <div class="control-group">
@@ -302,6 +373,18 @@
       </div>
 
       <div class="control-group">
+        <label>Diminishing Returns</label>
+        <div class="slider-row">
+          <input type="range" id="diminishRate" min="0" max="2" value="0" step="0.1" data-default="0">
+          <span class="slider-val" id="diminishRateVal">0.0</span>
+          <button class="reset-btn" data-for="diminishRate" title="Reset to default">&#x21ba;</button>
+        </div>
+        <p class="explainer">How quickly more police/prisoners become less effective. 0 = constant elasticities</p>
+      </div>
+
+      <div class="sub-header">Costs of State Action</div>
+
+      <div class="control-group">
         <label>Cost of an Arrest (prison-equivalent days)</label>
         <div class="slider-row">
           <input type="range" id="arrestDays" min="1" max="90" value="1" step="1" data-default="1">
@@ -309,16 +392,6 @@
           <button class="reset-btn" data-for="arrestDays" title="Reset to default">&#x21ba;</button>
         </div>
         <p class="explainer">How much suffering an arrest causes, in equivalent days of prison</p>
-      </div>
-
-      <div class="control-group">
-        <label>Police Killing Elasticity</label>
-        <div class="slider-row">
-          <input type="range" id="polKillElast" min="-1.50" max="1.00" value="-0.93" step="0.01" data-default="-0.93">
-          <span class="slider-val" id="polKillElastVal">&minus;0.93</span>
-          <button class="reset-btn" data-for="polKillElast" title="Reset to default">&#x21ba;</button>
-        </div>
-        <p class="explainer">1% more police &rarr; X% change in police killings. &minus;0.93 = regression estimate; 0 = no effect; +1 = proportional</p>
       </div>
 
       <div class="control-group">
@@ -332,14 +405,26 @@
       </div>
 
       <div class="control-group">
-        <label>Diminishing Returns</label>
+        <label>Police Killing Elasticity</label>
         <div class="slider-row">
-          <input type="range" id="diminishRate" min="0" max="2" value="0" step="0.1" data-default="0">
-          <span class="slider-val" id="diminishRateVal">0.0</span>
-          <button class="reset-btn" data-for="diminishRate" title="Reset to default">&#x21ba;</button>
+          <input type="range" id="polKillElast" min="-1.50" max="1.00" value="-0.93" step="0.01" data-default="-0.93">
+          <span class="slider-val" id="polKillElastVal">&minus;0.93</span>
+          <button class="reset-btn" data-for="polKillElast" title="Reset to default">&#x21ba;</button>
         </div>
-        <p class="explainer">How quickly more police/prisoners become less effective. 0 = constant elasticities</p>
+        <p class="explainer">1% more police &rarr; X% change in police killings. &minus;0.93 = regression estimate; 0 = no effect; +1 = proportional</p>
       </div>
+
+      <div class="control-group">
+        <label>State Violence Multiplier</label>
+        <div class="slider-row">
+          <input type="range" id="stateViolMult" min="1" max="5" value="1.67" step="0.01" data-default="1.67">
+          <span class="slider-val" id="stateViolMultVal">1.67</span>
+          <button class="reset-btn" data-for="stateViolMult" title="Reset to default">&#x21ba;</button>
+        </div>
+        <p class="explainer">Multiplier on welfare cost of arrests &amp; police killings to account for spillover effects (community trauma, educational harm). 1.0 = no adjustment; 1.67 = Ang 2021 estimate</p>
+      </div>
+
+      <div class="sub-header">Other Settings</div>
 
       <div class="control-group">
         <label>Units</label>
@@ -363,33 +448,30 @@
     <div class="results-box" id="resultsBox">
       <h3>Results at Selected Point</h3>
       <div class="result-line">
-        <span>Net Welfare Change</span>
-        <span class="val" id="resTotal">&mdash;</span>
-      </div>
-      <div class="result-line">
         <span>Budget Impact</span>
         <span class="val" id="resBudget">&mdash;</span>
       </div>
       <div class="result-line">
-        <span>Homicides</span>
-        <span class="val" id="resHomicides">&mdash;</span>
+        <span>Police Added</span>
+        <span class="val" id="resPoliceAdded">&mdash;</span>
       </div>
       <div class="result-line">
-        <span>Prisoners</span>
-        <span class="val" id="resPrisoners">&mdash;</span>
+        <span>Sentence Length Change</span>
+        <span class="val" id="resSentence">&mdash;</span>
       </div>
-      <div class="result-line">
-        <span>Arrests</span>
-        <span class="val" id="resArrests">&mdash;</span>
-      </div>
-      <div class="result-line">
-        <span>Other Crime</span>
-        <span class="val" id="resOtherCrime">&mdash;</span>
-      </div>
-      <div class="result-line">
-        <span>Police Killings</span>
-        <span class="val" id="resPolKill">&mdash;</span>
-      </div>
+      <table class="results-table">
+        <thead>
+          <tr><th></th><th>Raw</th><th id="thRate">YoL / Raw</th><th id="thConverted">YoL</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Homicides</td><td id="resHomRaw">&mdash;</td><td id="resHomRate">&mdash;</td><td id="resHomicides">&mdash;</td></tr>
+          <tr><td>Other Crime</td><td id="resOtherRaw">&mdash;</td><td id="resOtherRate">&mdash;</td><td id="resOtherCrime">&mdash;</td></tr>
+          <tr><td>Prisoners</td><td id="resPrizRaw">&mdash;</td><td id="resPrizRate">&mdash;</td><td id="resPrisoners">&mdash;</td></tr>
+          <tr><td>Arrests</td><td id="resArrRaw">&mdash;</td><td id="resArrRate">&mdash;</td><td id="resArrests">&mdash;</td></tr>
+          <tr><td>Police Killings</td><td id="resPKRaw">&mdash;</td><td id="resPKRate">&mdash;</td><td id="resPolKill">&mdash;</td></tr>
+          <tr class="total-row"><td>Net Welfare</td><td></td><td></td><td id="resTotal">&mdash;</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="ref-points">
@@ -513,17 +595,23 @@ function calculateHomicides(pol0, polf, priz0, prizf, y0, params) {
   const ePolBase = params.polElast;
   const ePrizBase = params.prizElast;
   const dimRate = params.diminishRate || 0;
+  const linearPol = params.polFunctionalForm === 'linear';
 
-  if (dimRate === 0) {
-    // Constant elasticities: exact closed-form
+  if (dimRate === 0 && !linearPol) {
+    // Constant elasticities, log-log: exact closed-form
     return y0 * Math.pow(polf / pol0, ePolBase) * Math.pow(prizf / priz0, ePrizBase);
   }
 
-  // Diminishing returns: numerical integration with effective elasticities
+  // Stepwise numerical integration (needed for diminishing returns or linear police form)
   const nSteps = Math.max(Math.abs(polf - pol0), Math.abs(prizf - priz0), 1);
   const steps = Math.ceil(nSteps);
   const dPol = (polf - pol0) / steps;
   const dPriz = (prizf - priz0) / steps;
+
+  // Linear police slope: Chalfin et al 2022 estimate (homicides per officer),
+  // converted to homicides per unit police rate (1 rate unit = pop/100k officers)
+  const linearPolBeta = params.linearPolBeta || -0.1;
+  const sPolLinear = linearPolBeta * C.pop / 1e5;
 
   let pol = pol0, priz = priz0, y = y0;
   for (let i = 0; i < steps; i++) {
@@ -531,10 +619,18 @@ function calculateHomicides(pol0, polf, priz0, prizf, y0, params) {
     const newPriz = priz + dPriz;
     if (newPol <= 0 || newPriz <= 0 || y <= 0) break;
 
-    const ePol = getEffectiveElast(ePolBase, pol, C.policeRate, dimRate);
     const ePriz = getEffectiveElast(ePrizBase, priz, C.prisonRate, dimRate);
 
-    y = y * Math.pow(newPol / pol, ePol) * Math.pow(newPriz / priz, ePriz);
+    if (linearPol) {
+      // Police: constant absolute slope; Prison: log-log
+      const yAfterPriz = y * Math.pow(newPriz / priz, ePriz);
+      y = yAfterPriz + sPolLinear * dPol;
+    } else {
+      // Both log-log with diminishing returns
+      const ePol = getEffectiveElast(ePolBase, pol, C.policeRate, dimRate);
+      y = y * Math.pow(newPol / pol, ePol) * Math.pow(newPriz / priz, ePriz);
+    }
+
     pol = newPol;
     priz = newPriz;
   }
@@ -545,7 +641,7 @@ function calculateHomicides(pol0, polf, priz0, prizf, y0, params) {
 // CORE CALCULATION: FULL COST-BENEFIT AT A POINT
 // ============================================================
 function calculateCostsBenefits(policeRate, prisonRate, params) {
-  const { polElast, prizElast, arrestDays, polKillElast, diminishRate, prisonQuality, units } = params;
+  const { polElast, prizElast, arrestDays, polKillElast, diminishRate, prisonQuality, units, stateViolMult } = params;
 
   // Proposed counts
   const policeProposed = policeRate * C.pop / 1e5;
@@ -586,9 +682,9 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
   raw.arrests = arrestsPerOfficer * policeAdded;
   const arrestToPrizYr = arrestDays / 365;
   if (units === 'yearsoflife') {
-    converted.arrests = raw.arrests * arrestToPrizYr * prizMult;
+    converted.arrests = raw.arrests * arrestToPrizYr * prizMult * stateViolMult;
   } else {
-    converted.arrests = raw.arrests * arrestToPrizYr * (1 / C.lifeExpectancy) * prizMult;
+    converted.arrests = raw.arrests * arrestToPrizYr * (1 / C.lifeExpectancy) * prizMult * stateViolMult;
   }
 
   // 3. Homicides
@@ -619,9 +715,9 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
   }
 
   if (units === 'yearsoflife') {
-    converted.policeKillings = raw.policeKillings * (C.lifeExpectancy - C.meanAgePolicVictim);
+    converted.policeKillings = raw.policeKillings * (C.lifeExpectancy - C.meanAgePolicVictim) * stateViolMult;
   } else {
-    converted.policeKillings = raw.policeKillings;
+    converted.policeKillings = raw.policeKillings * stateViolMult;
   }
 
   // --- TOTAL ---
@@ -696,7 +792,10 @@ function getParams() {
     prisonQuality: +document.getElementById('prisonQuality').value,
     diminishRate: +document.getElementById('diminishRate').value,
     units: document.getElementById('units').value,
-    nonPenalReduction: +document.getElementById('nonPenalReduction').value / 100
+    nonPenalReduction: +document.getElementById('nonPenalReduction').value / 100,
+    stateViolMult: +document.getElementById('stateViolMult').value,
+    polFunctionalForm: document.getElementById('polFunctionalForm').value,
+    linearPolBeta: +document.getElementById('linearPolBeta').value
   };
 }
 
@@ -712,9 +811,10 @@ function formatNum(n) {
 function formatSliderVal(id, v) {
   if (id === 'nonPenalReduction') return v + '%';
   if (id === 'arrestDays' || id === 'policeRate' || id === 'prisonRate') return String(v);
-  if (id === 'polElast' || id === 'prizElast' || id === 'polKillElast') return v < 0 ? '\u2212' + Math.abs(v).toFixed(2) : v.toFixed(2);
+  if (id === 'polElast' || id === 'prizElast' || id === 'polKillElast' || id === 'linearPolBeta') return v < 0 ? '\u2212' + Math.abs(v).toFixed(2) : v.toFixed(2);
   if (id === 'prisonQuality') return v.toFixed(2);
   if (id === 'diminishRate') return v.toFixed(1);
+  if (id === 'stateViolMult') return v.toFixed(2);
   return String(v);
 }
 
@@ -856,8 +956,6 @@ function updateHeatmap() {
       x: [optPoint.pol], y: [optPoint.priz],
       mode: 'markers+text', type: 'scatter',
       marker: { size: 12, color: '#1a9850', symbol: 'star', line: { color: '#fff', width: 1.5 } },
-      text: ['Optimal'], textposition: 'bottom left',
-      textfont: { size: 10, color: '#1a9850', weight: 'bold' },
       name: optLabel,
       hovertemplate: optLabel + ' (%{x}, %{y})<extra></extra>'
     },
@@ -885,7 +983,22 @@ function updateHeatmap() {
     },
     margin: { t: 30, r: 80, b: 50, l: 60 },
     showlegend: false,
-    hovermode: 'closest'
+    hovermode: 'closest',
+    annotations: [{
+      x: optPoint.pol,
+      y: optPoint.priz,
+      text: '<b>Optimal</b>',
+      showarrow: true,
+      arrowhead: 0,
+      arrowcolor: '#1a9850',
+      ax: -40,
+      ay: 20,
+      font: { size: 11, color: '#1a9850' },
+      bgcolor: 'rgba(255,255,255,0.85)',
+      bordercolor: '#1a9850',
+      borderwidth: 1,
+      borderpad: 3
+    }]
   };
 
   Plotly.react('heatmap', traces, layout, { responsive: true });
@@ -942,36 +1055,92 @@ function updateBreakdown() {
   const result = calculateCostsBenefits(polRate, prizRate, params);
 
   const unitLabel = params.units === 'yearsoflife' ? 'YoL' : 'lives';
+  document.getElementById('thRate').textContent = unitLabel + ' / Raw';
+  document.getElementById('thConverted').textContent = unitLabel;
 
   // Update results box
+  const allCells = ['resBudget','resPoliceAdded','resSentence','resHomRaw','resHomRate','resHomicides',
+    'resOtherRaw','resOtherRate','resOtherCrime',
+    'resPrizRaw','resPrizRate','resPrisoners',
+    'resArrRaw','resArrRate','resArrests',
+    'resPKRaw','resPKRate','resPolKill','resTotal'];
+
   if (isNaN(result.total)) {
     document.getElementById('resTotal').textContent = 'Infeasible';
-    document.getElementById('resTotal').className = 'val bad';
-    ['resBudget','resHomicides','resPrisoners','resArrests','resOtherCrime','resPolKill']
-      .forEach(id => document.getElementById(id).textContent = '\u2014');
+    allCells.forEach(id => { if (id !== 'resTotal') document.getElementById(id).textContent = '\u2014'; });
     Plotly.react('breakdown', [], {}, { responsive: true });
     return;
   }
 
-  const setResult = (id, val) => {
+  const fmt = (v) => (v > 0 ? '+' : '') + formatNum(v);
+  const fmtRate = (v) => v.toFixed(2);
+  const colorClass = (v) => v <= 0 ? 'good' : 'bad';
+  const setCell = (id, text, cls) => {
     const el = document.getElementById(id);
-    el.textContent = (val > 0 ? '+' : '') + formatNum(val) + ' ' + unitLabel;
-    el.className = 'val ' + (val <= 0 ? 'good' : 'bad');
+    el.textContent = text;
+    el.className = cls || '';
   };
 
-  const totalEl = document.getElementById('resTotal');
-  totalEl.textContent = (result.total > 0 ? '+' : '') + formatNum(result.total) + ' ' + unitLabel;
-  totalEl.className = 'val ' + (result.total <= 0 ? 'good' : 'bad');
-
+  // Budget
   const budgetEl = document.getElementById('resBudget');
   budgetEl.textContent = (result.budget > 0 ? '+' : '') + result.budget.toFixed(1) + 'B';
   budgetEl.className = 'val ' + (result.budget <= 0 ? 'good' : 'bad');
 
-  setResult('resHomicides', result.components.homicides);
-  setResult('resPrisoners', result.components.prisoners);
-  setResult('resArrests', result.components.arrests);
-  setResult('resOtherCrime', result.components.otherCrime);
-  setResult('resPolKill', result.components.policeKillings);
+  const policeAdded = (polRate * C.pop / 1e5) - C.police;
+  const polAddEl = document.getElementById('resPoliceAdded');
+  polAddEl.textContent = (policeAdded > 0 ? '+' : '') + formatNum(policeAdded);
+  polAddEl.className = 'val';
+
+  // Sentence length change (effective, accounting for police arrests)
+  const targetPrisoners = prizRate * C.pop / 1e5;
+  const extraFromPolice = policeAdded * extraPrizFromPolice.bestguess;
+  const effectiveTarget = targetPrisoners - extraFromPolice;
+  const effectiveF = 1 - effectiveTarget / C.prisoners;
+  const sentEl = document.getElementById('resSentence');
+  if (effectiveTarget < 0) {
+    sentEl.textContent = 'Infeasible';
+    sentEl.className = 'val bad';
+  } else if (Math.abs(effectiveF) < 0.005) {
+    sentEl.textContent = 'No change';
+    sentEl.className = 'val';
+  } else {
+    const pct = (effectiveF * 100).toFixed(0);
+    sentEl.textContent = (effectiveF > 0 ? '\u2212' : '+') + Math.abs(pct) + '%';
+    sentEl.className = 'val ' + (effectiveF > 0 ? 'good' : 'bad');
+  }
+
+  // Compute YoL/raw conversion rates
+  const raw = result.raw;
+  const conv = result.components;
+  const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
+
+  // Homicides: raw count change, YoL per homicide = lifeExp - meanAge
+  setCell('resHomRaw', fmt(raw.homicides));
+  setCell('resHomRate', fmtRate(safeDiv(conv.homicides, raw.homicides)));
+  setCell('resHomicides', fmt(conv.homicides), colorClass(conv.homicides));
+
+  // Other crime: raw proportional, YoL per unit
+  setCell('resOtherRaw', fmt(raw.otherCrime));
+  setCell('resOtherRate', fmtRate(safeDiv(conv.otherCrime, raw.otherCrime)));
+  setCell('resOtherCrime', fmt(conv.otherCrime), colorClass(conv.otherCrime));
+
+  // Prisoners: raw prisoner-years, YoL per prisoner-year = prizMult
+  setCell('resPrizRaw', fmt(raw.prisoners));
+  setCell('resPrizRate', fmtRate(safeDiv(conv.prisoners, raw.prisoners)));
+  setCell('resPrisoners', fmt(conv.prisoners), colorClass(conv.prisoners));
+
+  // Arrests: raw arrest count, YoL per arrest
+  setCell('resArrRaw', fmt(raw.arrests));
+  setCell('resArrRate', fmtRate(safeDiv(conv.arrests, raw.arrests)));
+  setCell('resArrests', fmt(conv.arrests), colorClass(conv.arrests));
+
+  // Police killings: raw count change, YoL per killing
+  setCell('resPKRaw', fmt(raw.policeKillings));
+  setCell('resPKRate', fmtRate(safeDiv(conv.policeKillings, raw.policeKillings)));
+  setCell('resPolKill', fmt(conv.policeKillings), colorClass(conv.policeKillings));
+
+  // Total
+  setCell('resTotal', fmt(result.total), colorClass(result.total));
 
   // Breakdown bar chart
   const categories = ['Prisoners', 'Arrests', 'Homicides', 'Other Crime', 'Police Killings'];
@@ -990,7 +1159,8 @@ function updateBreakdown() {
     type: 'bar',
     orientation: 'h',
     marker: { color: colors },
-    hovertemplate: '%{y}: %{x:.0f} ' + unitLabel + '<extra></extra>'
+    customdata: values.map(v => (v > 0 ? '+' : '') + formatNum(v)),
+    hovertemplate: '%{y}: %{customdata} ' + unitLabel + '<extra></extra>'
   };
 
   const barLayout = {
@@ -1038,10 +1208,12 @@ function resetAll() {
     const valSpan = document.getElementById(el.id + 'Val');
     if (valSpan) valSpan.textContent = formatSliderVal(el.id, +def);
   });
-  // Single full update
+  // Reset functional form visibility
+  document.getElementById('polElastGroup').style.display = '';
+  document.getElementById('linearPolBetaGroup').style.display = 'none';
+  // Single full update, then jump to First-World Balance
   updateHeatmap();
-  updateSentenceInfo();
-  updateBreakdown();
+  jumpTo(Math.round(fwbX), Math.round(fwbY));
 }
 
 // Per-slider reset buttons
@@ -1076,7 +1248,7 @@ function jumpTo(pol, priz) {
 
 // Assumption sliders: recompute heatmap (these change the whole surface)
 ['polElast', 'prizElast', 'arrestDays', 'nonPenalReduction',
- 'polKillElast', 'prisonQuality', 'diminishRate'].forEach(id => {
+ 'polKillElast', 'prisonQuality', 'diminishRate', 'stateViolMult', 'linearPolBeta'].forEach(id => {
   const slider = document.getElementById(id);
   const valSpan = document.getElementById(id + 'Val');
   slider.addEventListener('input', () => {
@@ -1088,8 +1260,14 @@ function jumpTo(pol, priz) {
 });
 
 // Dropdown updates: recompute heatmap
-['units', 'budgetConstraint'].forEach(id => {
+['units', 'budgetConstraint', 'polFunctionalForm'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
+    // Toggle police effect sliders based on functional form
+    if (id === 'polFunctionalForm') {
+      const isLinear = document.getElementById('polFunctionalForm').value === 'linear';
+      document.getElementById('polElastGroup').style.display = isLinear ? 'none' : '';
+      document.getElementById('linearPolBetaGroup').style.display = isLinear ? '' : 'none';
+    }
     updateHeatmap();
     updateSentenceInfo();
     updateBreakdown();
@@ -1100,8 +1278,8 @@ function jumpTo(pol, priz) {
 // INIT
 // ============================================================
 updateHeatmap();
-updateSentenceInfo();
-updateBreakdown();
+// Start with First-World Balance point selected
+jumpTo(Math.round(fwbX), Math.round(fwbY));
 
 // Click on heatmap to select point (must be after first render)
 document.getElementById('heatmap').on('plotly_click', (data) => {

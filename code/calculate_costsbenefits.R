@@ -65,7 +65,10 @@ calculate_costsbenefits <- function(
       'optimistic_prison' #you think prison reduces crime
     ), 
     myElasticities=c('constant','changing'), #whether changing or constant
-    myPrizChoice=c('standard','deflated')
+    myPrizChoice=c('standard','deflated'),
+    myStateViolenceMultiplier=1.67, #Ang 2021: police killings have ~1/0.6 the effect of civilian killings
+    myPolFunctionalForm=c('loglog','linear'), #Chalfin et al 2022: linear means constant absolute effect
+    myLinearPolBeta=-0.1 #Chalfin et al 2022: homicides averted per officer hired
 ) {
   
   # policerate_proposed = 370
@@ -192,21 +195,23 @@ calculate_costsbenefits <- function(
   arrest_to_prisoneryear <- ifelse(myOrientation=='pessimistic_arrest',1/52,1/365)
   
   if(myUnits=='yearsoflife') {
-    
-    consequences[['arrests']] <- 
-      consequences_raw[['arrests']] * 
+
+    consequences[['arrests']] <-
+      consequences_raw[['arrests']] *
       arrest_to_prisoneryear *
-      #(1/life_expectancy_prisoner) * 
-      (prisonlife_multiplier)
-    
+      #(1/life_expectancy_prisoner) *
+      (prisonlife_multiplier) *
+      myStateViolenceMultiplier
+
   } else if(myUnits=='lives') {
-    
-    consequences[['arrests']] <- 
-      consequences_raw[['arrests']] * 
+
+    consequences[['arrests']] <-
+      consequences_raw[['arrests']] *
       arrest_to_prisoneryear *
-      (1/life_expectancy_prisoner) * 
-      (prisonlife_multiplier)
-    
+      (1/life_expectancy_prisoner) *
+      (prisonlife_multiplier) *
+      myStateViolenceMultiplier
+
   }
   
   
@@ -222,7 +227,9 @@ calculate_costsbenefits <- function(
       y0 = homicides_2021,
       delta = 1,
       myOrientation=myOrientation,
-      myElasticities=myElasticities
+      myElasticities=myElasticities,
+      myPolFunctionalForm=myPolFunctionalForm,
+      myLinearPolBeta=myLinearPolBeta
     ) - homicides_2021
     
   } else if(myMethod=='direct') {
@@ -301,15 +308,16 @@ calculate_costsbenefits <- function(
   
   
   if(myUnits=='yearsoflife') {
-    
+
     #assume life expectancy is about 65
     life_expectancy_policevictim <- 65
-    consequences[['policekillings']] <- 
+    consequences[['policekillings']] <-
       consequences_raw[['policekillings']] * (
         life_expectancy_policevictim - mean_age_policevictim
-      )
+      ) * myStateViolenceMultiplier
   } else {
-    consequences[['policekillings']] <- consequences_raw[['policekillings']]
+    consequences[['policekillings']] <-
+      consequences_raw[['policekillings']] * myStateViolenceMultiplier
   }
   
   

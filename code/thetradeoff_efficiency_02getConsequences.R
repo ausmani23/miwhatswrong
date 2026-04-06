@@ -63,6 +63,7 @@ loopdf <- expand.grid(
   ),
   myElasticities=c('constant','changing'), #elasticities: constant of changing?
   myPrizChoice=c('standard','deflated'), #prison: how bad is it as a year of life?
+  myPolFunctionalForm=c('loglog','linear'), #police functional form: log-log or linear?
   pointType = '2d'
 )
 
@@ -99,7 +100,8 @@ tmpdf <- merge(
       'optimistic_prison' #you think prison reduces crime
     ),
     myElasticities=c('constant','changing'), #elasticities: constant of changing?
-    myPrizChoice=c('standard','deflated') #prison: how bad is it as a year of life?
+    myPrizChoice=c('standard','deflated'), #prison: how bad is it as a year of life?
+    myPolFunctionalForm=c('loglog','linear') #police functional form
   ),
   by=NULL
 )
@@ -114,14 +116,16 @@ keyvars<-c(
   'myUnits',
   'myOrientation',
   'myElasticities',
-  'myPrizChoice'
+  'myPrizChoice',
+  'myPolFunctionalForm'
 )
 tmpdf <- unique(loopdf[,keyvars])
-tmp_default<-tmpdf$myMethod=='stepwise' & 
+tmp_default<-tmpdf$myMethod=='stepwise' &
   tmpdf$myUnits=='yearsoflife' &
   tmpdf$myOrientation=='bestguess' &
   tmpdf$myElasticities=='constant' &
-  tmpdf$myPrizChoice=='standard' 
+  tmpdf$myPrizChoice=='standard' &
+  tmpdf$myPolFunctionalForm=='loglog'
 thisrow <- tmpdf[tmp_default,]
 tmp<-lapply(names(tmpdf),function(tmpvar) {
   #tmpvar<-c('myMethod')
@@ -150,7 +154,9 @@ tmplevels<-c(
   #
   'Changing Elasticities',
   #
-  'Prison-Year Deflated'
+  'Prison-Year Deflated',
+  #
+  'Linear Police Effect'
 )
 tmpdf$choice<-tmplevels
 tmpdf$choice<-factor(tmpdf$choice,tmplevels)
@@ -171,7 +177,8 @@ myoutput <- lapply(loopdf$i,function(i) {
     myUnits = loopdf$myUnits[i],
     myOrientation = loopdf$myOrientation[i],
     myElasticities = loopdf$myElasticities[i],
-    myPrizChoice = loopdf$myPrizChoice[i]
+    myPrizChoice = loopdf$myPrizChoice[i],
+    myPolFunctionalForm = loopdf$myPolFunctionalForm[i]
   )
   consequencesdf<-tmplist$consequencesdf
   if(!is.null(consequencesdf)) {
