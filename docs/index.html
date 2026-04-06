@@ -157,6 +157,11 @@
     border-top: 2px solid #3366cc;
     font-weight: 700;
   }
+  .crime-toggle { cursor: pointer; }
+  .crime-toggle:hover td { background: #e8eaf6; }
+  .crime-toggle td:first-child { font-weight: 600; }
+  .crime-detail td { font-size: 0.7rem; color: #666; }
+  .crime-detail td:first-child { padding-left: 0.8rem; }
 
   .ref-points {
     margin-top: 1rem;
@@ -341,42 +346,32 @@
       <div class="sub-header">Crime Reduction</div>
 
       <div class="control-group">
+        <label>Police Effectiveness</label>
+        <div class="slider-row">
+          <input type="range" id="policeEffect" min="0" max="2" value="1.00" step="0.01" data-default="1.00">
+          <span class="slider-val" id="policeEffectVal">1.00</span>
+          <button class="reset-btn" data-for="policeEffect" title="Reset to default">&#x21ba;</button>
+        </div>
+        <p class="explainer">Multiplier on police crime-reduction effects. 0 = police don't reduce crime; 1.0 = best guess (Chalfin &amp; McCary 2017); 2.0 = double the effect</p>
+      </div>
+
+      <div class="control-group">
+        <label>Prison Effectiveness</label>
+        <div class="slider-row">
+          <input type="range" id="prisonEffect" min="0" max="2" value="1.00" step="0.01" data-default="1.00">
+          <span class="slider-val" id="prisonEffectVal">1.00</span>
+          <button class="reset-btn" data-for="prisonEffect" title="Reset to default">&#x21ba;</button>
+        </div>
+        <p class="explainer">Multiplier on prison crime-reduction effects. 0 = Roodman 2017 (zero net effect); 1.0 = Donohue 2009 best guess; 2.0 = double</p>
+      </div>
+
+      <div class="control-group">
         <label>Police Functional Form</label>
         <select id="polFunctionalForm" data-default="loglog">
           <option value="loglog" selected>Log-Log (diminishing absolute effect)</option>
           <option value="linear">Linear (constant absolute effect)</option>
         </select>
         <p class="explainer">Log-log: each additional officer has a smaller absolute effect. Linear: each officer reduces crime by the same fixed amount (Chalfin et al. 2022).</p>
-      </div>
-
-      <div class="control-group" id="polElastGroup">
-        <label>Police Effect on Homicides (Elasticity)</label>
-        <div class="slider-row">
-          <input type="range" id="polElast" min="-1.00" max="0" value="-0.67" step="0.01" data-default="-0.67">
-          <span class="slider-val" id="polElastVal">&minus;0.67</span>
-          <button class="reset-btn" data-for="polElast" title="Reset to default">&#x21ba;</button>
-        </div>
-        <p class="explainer">Elasticity: 1% more police &rarr; X% fewer homicides (Chalfin &amp; McCary 2017: &minus;0.67)</p>
-      </div>
-
-      <div class="control-group" id="linearPolBetaGroup" style="display:none;">
-        <label>Police Effect on Homicides (per officer)</label>
-        <div class="slider-row">
-          <input type="range" id="linearPolBeta" min="-0.20" max="0" value="-0.10" step="0.01" data-default="-0.10">
-          <span class="slider-val" id="linearPolBetaVal">&minus;0.10</span>
-          <button class="reset-btn" data-for="linearPolBeta" title="Reset to default">&#x21ba;</button>
-        </div>
-        <p class="explainer">Each officer hired averts this many homicides. Chalfin et al. 2022: &minus;0.06 (ASG IV) to &minus;0.10 (COPS IV)</p>
-      </div>
-
-      <div class="control-group">
-        <label>Prison Effect on Homicides</label>
-        <div class="slider-row">
-          <input type="range" id="prizElast" min="-0.30" max="0" value="-0.05" step="0.01" data-default="-0.05">
-          <span class="slider-val" id="prizElastVal">&minus;0.05</span>
-          <button class="reset-btn" data-for="prizElast" title="Reset to default">&#x21ba;</button>
-        </div>
-        <p class="explainer">Elasticity: 1% more prisoners &rarr; X% fewer homicides (Donohue 2009: &minus;0.05)</p>
       </div>
 
       <div class="control-group">
@@ -386,7 +381,7 @@
           <span class="slider-val" id="diminishRateVal">0.0</span>
           <button class="reset-btn" data-for="diminishRate" title="Reset to default">&#x21ba;</button>
         </div>
-        <p class="explainer">How quickly more police/prisoners become less effective. 0 = constant elasticities</p>
+        <p class="explainer">How much elasticities change with the rate. 0 = constant. Higher = stronger diminishing returns at high rates, stronger effects near abolition. Applies to all crime types.</p>
       </div>
 
       <div class="sub-header">Costs of State Action</div>
@@ -485,8 +480,14 @@
             <tr><th></th><th>Raw</th><th id="thRate">YoL / Raw</th><th id="thConverted">YoL</th></tr>
           </thead>
           <tbody>
-            <tr><td>Homicides</td><td id="resHomRaw">&mdash;</td><td id="resHomRate">&mdash;</td><td id="resHomicides">&mdash;</td></tr>
-            <tr><td>Other Crime</td><td id="resOtherRaw">&mdash;</td><td id="resOtherRate">&mdash;</td><td id="resOtherCrime">&mdash;</td></tr>
+            <tr class="crime-toggle" id="crimeRow"><td>Crime &#x25B6;</td><td id="resCrimeRaw">&mdash;</td><td id="resCrimeRate">&mdash;</td><td id="resCrime">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Homicides</td><td id="resHomRaw">&mdash;</td><td id="resHomRate">&mdash;</td><td id="resHomicides">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Rape</td><td id="resRapeRaw">&mdash;</td><td id="resRapeRate">&mdash;</td><td id="resRape">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Robbery</td><td id="resRobRaw">&mdash;</td><td id="resRobRate">&mdash;</td><td id="resRob">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Agg. Assault</td><td id="resAggRaw">&mdash;</td><td id="resAggRate">&mdash;</td><td id="resAgg">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Burglary</td><td id="resBurgRaw">&mdash;</td><td id="resBurgRate">&mdash;</td><td id="resBurg">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Theft</td><td id="resTheftRaw">&mdash;</td><td id="resTheftRate">&mdash;</td><td id="resTheft">&mdash;</td></tr>
+            <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;MVT</td><td id="resMvtRaw">&mdash;</td><td id="resMvtRate">&mdash;</td><td id="resMvt">&mdash;</td></tr>
             <tr><td>Prisoners</td><td id="resPrizRaw">&mdash;</td><td id="resPrizRate">&mdash;</td><td id="resPrisoners">&mdash;</td></tr>
             <tr><td>Arrests</td><td id="resArrRaw">&mdash;</td><td id="resArrRate">&mdash;</td><td id="resArrests">&mdash;</td></tr>
             <tr><td>Police Killings</td><td id="resPKRaw">&mdash;</td><td id="resPKRate">&mdash;</td><td id="resPolKill">&mdash;</td></tr>
@@ -522,7 +523,24 @@ const C = {
 
   // Costs
   lifeExpectancy: 65,
-  otherCrimeFrac: (995 - 693) / 995,
+  vsly: 7000000 / 33.9,  // value of statistical life-year
+
+  // Crime-specific parameters for non-homicide crimes
+  // NCVS 2023 volumes, CM2017 elasticities, Chalfin et al 2022 linear betas
+  // Welfare weights: cost per crime / VSLY
+  // Base homicide elasticities (before effectiveness multiplier)
+  basePolElast: -0.67,   // CM2017 GMM preferred
+  basePrizElast: -0.05,  // Donohue 2009: murder responds less than other crimes
+  baseLinearPolBeta: -0.10, // Chalfin et al 2022 midpoint
+
+  crimeTypes: {
+    rape:       { volume: 386246,   polElast: -0.26, polBeta: -0.071, prizElast: -0.15, cost: 140000 },
+    robbery:    { volume: 526181,   polElast: -0.56, polBeta: -3.559, prizElast: -0.15, cost: 12000 },
+    aggAssault: { volume: 984997,   polElast: -0.10, polBeta: -0.775, prizElast: -0.15, cost: 40000 },
+    burglary:   { volume: 1578526,  polElast: -0.23, polBeta: -4.452, prizElast: -0.15, cost: 2000 },
+    theft:      { volume: 10789959, polElast: -0.08, polBeta: -6.484, prizElast: -0.15, cost: 500 },
+    mvt:        { volume: 803027,   polElast: -0.34, polBeta: -5.180, prizElast: -0.15, cost: 6000 }
+  },
 
   // Victim ages (from data)
   meanAgeHomVictim: 31.1,
@@ -707,9 +725,43 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
     converted.homicides = raw.homicides;
   }
 
-  // 4. Other crime (proportional to homicide change)
-  raw.otherCrime = raw.homicides * C.otherCrimeFrac;
-  converted.otherCrime = converted.homicides * C.otherCrimeFrac;
+  // 4. Other crime (crime-specific: NCVS volumes, elasticities scaled by effectiveness)
+  const { policeEffect, prisonEffect } = params;
+  const linearPol = params.polFunctionalForm === 'linear';
+  const polRatio = policeRate / C.policeRate;
+  const prizRatio = prisonRateEffective / C.prisonRate;
+  const policeAddedForBeta = (policeRate * C.pop / 1e5) - C.police;
+  const dimRate = params.diminishRate || 0;
+
+  raw.otherCrime = 0;
+  converted.otherCrime = 0;
+  const crimeDetail = {};  // per-crime-type breakdown
+  for (const [ctype, cp] of Object.entries(C.crimeTypes)) {
+    const yolPerCrime = cp.cost / C.vsly;
+    // Police effect (scaled by effectiveness + diminishing returns)
+    let crimeChangePolice;
+    if (linearPol) {
+      crimeChangePolice = cp.polBeta * policeEffect * policeAddedForBeta;
+    } else {
+      const basePolElast = cp.polElast * policeEffect;
+      const effPolElast = getEffectiveElast(basePolElast, policeRate, C.policeRate, dimRate);
+      crimeChangePolice = cp.volume * (Math.pow(Math.max(polRatio, 0.001), effPolElast) - 1);
+    }
+    // Prison effect (with diminishing returns applied)
+    const basePrizElast = cp.prizElast * prisonEffect;
+    const effPrizElast = getEffectiveElast(basePrizElast, prisonRateEffective, C.prisonRate, dimRate);
+    const crimeChangePrison = cp.volume * (Math.pow(Math.max(prizRatio, 0.001), effPrizElast) - 1);
+    const rawChange = crimeChangePolice + crimeChangePrison;
+    raw.otherCrime += rawChange;
+    let convChange;
+    if (units === 'yearsoflife') {
+      convChange = rawChange * yolPerCrime;
+    } else {
+      convChange = rawChange * yolPerCrime / (C.lifeExpectancy - C.meanAgeHomVictim);
+    }
+    converted.otherCrime += convChange;
+    crimeDetail[ctype] = { raw: rawChange, converted: convChange, yolPerCrime };
+  }
 
   // 5. Police killings (elasticity model)
   // pk_new = pk_sq * (police_new / police_sq) ^ polKillElast
@@ -739,7 +791,8 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
     total,
     budget,
     components: converted,
-    raw
+    raw,
+    crimeDetail
   };
 }
 
@@ -791,9 +844,14 @@ function computeHeatmap(params) {
 let currentHeatmapData = null;
 
 function getParams() {
+  const policeEffect = +document.getElementById('policeEffect').value;
+  const prisonEffect = +document.getElementById('prisonEffect').value;
   return {
-    polElast: +document.getElementById('polElast').value,
-    prizElast: +document.getElementById('prizElast').value,
+    polElast: C.basePolElast * policeEffect,
+    prizElast: C.basePrizElast * prisonEffect,
+    linearPolBeta: C.baseLinearPolBeta * policeEffect,
+    policeEffect,
+    prisonEffect,
     arrestDays: +document.getElementById('arrestDays').value,
     polKillElast: +document.getElementById('polKillElast').value,
     budgetConstraint: document.getElementById('budgetConstraint').value,
@@ -802,8 +860,7 @@ function getParams() {
     units: document.getElementById('units').value,
     nonPenalReduction: +document.getElementById('nonPenalReduction').value / 100,
     stateViolMult: +document.getElementById('stateViolMult').value,
-    polFunctionalForm: document.getElementById('polFunctionalForm').value,
-    linearPolBeta: +document.getElementById('linearPolBeta').value
+    polFunctionalForm: document.getElementById('polFunctionalForm').value
   };
 }
 
@@ -819,7 +876,8 @@ function formatNum(n) {
 function formatSliderVal(id, v) {
   if (id === 'nonPenalReduction') return v + '%';
   if (id === 'arrestDays' || id === 'policeRate' || id === 'prisonRate') return String(v);
-  if (id === 'polElast' || id === 'prizElast' || id === 'polKillElast' || id === 'linearPolBeta') return v < 0 ? '\u2212' + Math.abs(v).toFixed(2) : v.toFixed(2);
+  if (id === 'polKillElast') return v < 0 ? '\u2212' + Math.abs(v).toFixed(2) : v.toFixed(2);
+  if (id === 'policeEffect' || id === 'prisonEffect') return v.toFixed(2);
   if (id === 'prisonQuality') return v.toFixed(2);
   if (id === 'diminishRate') return v.toFixed(1);
   if (id === 'stateViolMult') return v.toFixed(2);
@@ -1067,8 +1125,15 @@ function updateBreakdown() {
   document.getElementById('thConverted').textContent = unitLabel;
 
   // Update results box
-  const allCells = ['resBudget','resPoliceAdded','resSentence','resHomRaw','resHomRate','resHomicides',
-    'resOtherRaw','resOtherRate','resOtherCrime',
+  const allCells = ['resBudget','resPoliceAdded','resSentence',
+    'resCrimeRaw','resCrimeRate','resCrime',
+    'resHomRaw','resHomRate','resHomicides',
+    'resRapeRaw','resRapeRate','resRape',
+    'resRobRaw','resRobRate','resRob',
+    'resAggRaw','resAggRate','resAgg',
+    'resBurgRaw','resBurgRate','resBurg',
+    'resTheftRaw','resTheftRate','resTheft',
+    'resMvtRaw','resMvtRate','resMvt',
     'resPrizRaw','resPrizRate','resPrisoners',
     'resArrRaw','resArrRate','resArrests',
     'resPKRaw','resPKRate','resPolKill','resTotal'];
@@ -1122,15 +1187,27 @@ function updateBreakdown() {
   const conv = result.components;
   const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
 
-  // Homicides: raw count change, YoL per homicide = lifeExp - meanAge
+  // Combined Crime row (homicides + other crime)
+  const crimeRawTotal = raw.homicides + raw.otherCrime;
+  const crimeConvTotal = conv.homicides + conv.otherCrime;
+  setCell('resCrimeRaw', fmt(crimeRawTotal));
+  setCell('resCrimeRate', fmtRate(safeDiv(crimeConvTotal, crimeRawTotal)));
+  setCell('resCrime', fmt(crimeConvTotal), colorClass(crimeConvTotal));
+
+  // Crime detail rows (visible when expanded)
   setCell('resHomRaw', fmt(raw.homicides));
   setCell('resHomRate', fmtRate(safeDiv(conv.homicides, raw.homicides)));
   setCell('resHomicides', fmt(conv.homicides), colorClass(conv.homicides));
 
-  // Other crime: raw proportional, YoL per unit
-  setCell('resOtherRaw', fmt(raw.otherCrime));
-  setCell('resOtherRate', fmtRate(safeDiv(conv.otherCrime, raw.otherCrime)));
-  setCell('resOtherCrime', fmt(conv.otherCrime), colorClass(conv.otherCrime));
+  // Per-crime-type detail
+  const cd = result.crimeDetail || {};
+  const crimeMap = {rape:'Rape',robbery:'Rob',aggAssault:'Agg',burglary:'Burg',theft:'Theft',mvt:'Mvt'};
+  for (const [key, prefix] of Object.entries(crimeMap)) {
+    const d = cd[key] || { raw: 0, converted: 0, yolPerCrime: 0 };
+    setCell('res' + prefix + 'Raw', fmt(d.raw));
+    setCell('res' + prefix + 'Rate', fmtRate(d.yolPerCrime));
+    setCell('res' + prefix, fmt(d.converted), colorClass(d.converted));
+  }
 
   // Prisoners: raw prisoner-years, YoL per prisoner-year = prizMult
   setCell('resPrizRaw', fmt(raw.prisoners));
@@ -1150,13 +1227,12 @@ function updateBreakdown() {
   // Total
   setCell('resTotal', fmt(result.total), colorClass(result.total));
 
-  // Breakdown bar chart
-  const categories = ['Prisoners', 'Arrests', 'Homicides', 'Other Crime', 'Police Killings'];
+  // Breakdown bar chart (Crime = homicides + other crime combined)
+  const categories = ['Crime', 'Prisoners', 'Arrests', 'Police Killings'];
   const values = [
+    -(result.components.homicides + result.components.otherCrime),
     -result.components.prisoners,
     -result.components.arrests,
-    -result.components.homicides,
-    -result.components.otherCrime,
     -result.components.policeKillings
   ];
   const colors = values.map(v => v >= 0 ? '#2e7d32' : '#c62828');
@@ -1216,9 +1292,6 @@ function resetAll() {
     const valSpan = document.getElementById(el.id + 'Val');
     if (valSpan) valSpan.textContent = formatSliderVal(el.id, +def);
   });
-  // Reset functional form visibility
-  document.getElementById('polElastGroup').style.display = '';
-  document.getElementById('linearPolBetaGroup').style.display = 'none';
   // Single full update, then jump to First-World Balance
   updateHeatmap();
   jumpTo(Math.round(fwbX), Math.round(fwbY));
@@ -1255,8 +1328,8 @@ function jumpTo(pol, priz) {
 });
 
 // Assumption sliders: recompute heatmap (these change the whole surface)
-['polElast', 'prizElast', 'arrestDays', 'nonPenalReduction',
- 'polKillElast', 'prisonQuality', 'diminishRate', 'stateViolMult', 'linearPolBeta'].forEach(id => {
+['policeEffect', 'prisonEffect', 'arrestDays', 'nonPenalReduction',
+ 'polKillElast', 'prisonQuality', 'diminishRate', 'stateViolMult'].forEach(id => {
   const slider = document.getElementById(id);
   const valSpan = document.getElementById(id + 'Val');
   slider.addEventListener('input', () => {
@@ -1270,16 +1343,19 @@ function jumpTo(pol, priz) {
 // Dropdown updates: recompute heatmap
 ['units', 'budgetConstraint', 'polFunctionalForm'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
-    // Toggle police effect sliders based on functional form
-    if (id === 'polFunctionalForm') {
-      const isLinear = document.getElementById('polFunctionalForm').value === 'linear';
-      document.getElementById('polElastGroup').style.display = isLinear ? 'none' : '';
-      document.getElementById('linearPolBetaGroup').style.display = isLinear ? '' : 'none';
-    }
     updateHeatmap();
     updateSentenceInfo();
     updateBreakdown();
   });
+});
+
+// Crime row expand/collapse toggle
+document.getElementById('crimeRow').addEventListener('click', () => {
+  const details = document.querySelectorAll('.crime-detail');
+  const expanded = details[0].style.display !== 'none';
+  details.forEach(r => r.style.display = expanded ? 'none' : '');
+  document.getElementById('crimeRow').querySelector('td').textContent =
+    expanded ? 'Crime \u25B6' : 'Crime \u25BC';
 });
 
 // ============================================================

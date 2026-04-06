@@ -202,7 +202,9 @@ calculate_homicides <- function(
   epol0=NULL, #elasticity of police at start
   epolf=NULL, #elasticity of police at end
   myPolFunctionalForm=c('loglog','linear'), #Chalfin et al 2022: linear means constant absolute effect
-  myLinearPolBeta=-0.1 #Chalfin et al 2022: homicides averted per officer hired (0.06-0.1)
+  myLinearPolBeta=-0.1, #Chalfin et al 2022: homicides averted per officer hired (0.06-0.1)
+  myPoliceEffectiveness=1.0, #multiplier on police elasticity
+  myPrisonEffectiveness=1.0 #multiplier on prison elasticity
 ) {
   
   
@@ -225,8 +227,8 @@ calculate_homicides <- function(
   # myOrientation='bestguess'
   
   if(is.null(eprizf) & is.null(epriz0))  {
-    epriz0 <- getPrizElast(priz0,y0)
-    epol0 <- getPolElast(pol0,y0)
+    epriz0 <- getPrizElast(priz0,y0) * myPrisonEffectiveness
+    epol0 <- getPolElast(pol0,y0) * myPoliceEffectiveness
   }
   
     #starting points for the change
@@ -237,7 +239,8 @@ calculate_homicides <- function(
   if(myPolFunctionalForm=='linear') {
     #Chalfin et al 2022: constant absolute effect per officer
     #convert from per-officer to per-unit-police-rate (1 rate unit = pop/100k officers)
-    spol0 = myLinearPolBeta * pop_2021/10^5
+    #scaled by police effectiveness multiplier
+    spol0 = myLinearPolBeta * myPoliceEffectiveness * pop_2021/10^5
   } else {
     spol0 = y0/pol0 * epol0  #log-log: slope = Y/X * elasticity
   }

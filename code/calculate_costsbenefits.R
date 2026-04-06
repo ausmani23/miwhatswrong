@@ -49,6 +49,75 @@ setwd(codedir); source('thetradeoff_fwbalancecalcs.R')
 #########################################################
 #########################################################
 
+#crime-specific parameters for non-homicide crimes
+#used to replace the proportional othercrime shorthand
+
+#NCVS 2023 victimization volumes (from ICPSR_38962, weighted)
+#police elasticities from Chalfin & McCary 2017 Table 3 col 9 (GMM)
+#linear betas from Chalfin et al 2022 (midpoint ASG/COPS IVs)
+#prison elasticities from Donohue 2009 synthesis of Table 9.1
+#  murder responds less (-0.05); other crimes ~-0.15
+#  (Roodman 2017 argues net effect may be zero at current margins)
+#welfare weights: cost per crime from CM2017 Table 1,
+#  converted to YoL via VSLY = $7M / 33.9 = $206,490
+
+#homicide prison elasticity (used in calculate_homicides, kept separate)
+homicide_prizElast <- -0.05
+
+crime_params <- list(
+  rape = list(
+    ncvs_volume = 386246,
+    polElast = -0.26,   #CM2017 GMM
+    polBeta = -0.071,   #Chalfin et al 2022 midpoint
+    prizElast = -0.15,  #Donohue 2009: violent crime, upper range
+    costPerCrime = 140000,
+    yolPerCrime = 140000 / (7000000 / 33.9)  #0.678
+  ),
+  robbery = list(
+    ncvs_volume = 526181,
+    polElast = -0.56,
+    polBeta = -3.559,
+    prizElast = -0.15,  #Donohue 2009
+    costPerCrime = 12000,
+    yolPerCrime = 12000 / (7000000 / 33.9)  #0.058
+  ),
+  aggravated_assault = list(
+    ncvs_volume = 984997,
+    polElast = -0.10,
+    polBeta = -0.775,
+    prizElast = -0.15,  #Donohue 2009
+    costPerCrime = 40000,
+    yolPerCrime = 40000 / (7000000 / 33.9)  #0.194
+  ),
+  burglary = list(
+    ncvs_volume = 1578526,
+    polElast = -0.23,
+    polBeta = -4.452,
+    prizElast = -0.15,  #Donohue 2009: property crime
+    costPerCrime = 2000,
+    yolPerCrime = 2000 / (7000000 / 33.9)  #0.0097
+  ),
+  theft = list(
+    ncvs_volume = 10685819 + 104140, #household + personal larceny
+    polElast = -0.08,
+    polBeta = -6.484,
+    prizElast = -0.15,  #Donohue 2009
+    costPerCrime = 500,
+    yolPerCrime = 500 / (7000000 / 33.9)  #0.0024
+  ),
+  motor_vehicle_theft = list(
+    ncvs_volume = 803027,
+    polElast = -0.34,
+    polBeta = -5.180,
+    prizElast = -0.15,  #Donohue 2009
+    costPerCrime = 6000,
+    yolPerCrime = 6000 / (7000000 / 33.9)  #0.029
+  )
+)
+
+#########################################################
+#########################################################
+
 #this function takes an x-y coordinate
 #and returns costs+benefits, based on our assumptions
 calculate_costsbenefits <- function(
@@ -68,7 +137,9 @@ calculate_costsbenefits <- function(
     myPrizChoice=c('standard','deflated'),
     myStateViolenceMultiplier=1.67, #Ang 2021: police killings have ~1/0.6 the effect of civilian killings
     myPolFunctionalForm=c('loglog','linear'), #Chalfin et al 2022: linear means constant absolute effect
-    myLinearPolBeta=-0.1 #Chalfin et al 2022: homicides averted per officer hired
+    myLinearPolBeta=-0.1, #Chalfin et al 2022: homicides averted per officer hired
+    myPoliceEffectiveness=1.0, #multiplier on all police crime-reduction elasticities (0=no effect, 1=best guess, 2=double)
+    myPrisonEffectiveness=1.0 #multiplier on all prison crime-reduction elasticities (0=Roodman, 1=Donohue best guess)
 ) {
   
   # policerate_proposed = 370
@@ -229,7 +300,9 @@ calculate_costsbenefits <- function(
       myOrientation=myOrientation,
       myElasticities=myElasticities,
       myPolFunctionalForm=myPolFunctionalForm,
-      myLinearPolBeta=myLinearPolBeta
+      myLinearPolBeta=myLinearPolBeta,
+      myPoliceEffectiveness=myPoliceEffectiveness,
+      myPrisonEffectiveness=myPrisonEffectiveness
     ) - homicides_2021
     
   } else if(myMethod=='direct') {
@@ -255,19 +328,43 @@ calculate_costsbenefits <- function(
   }
   
   #(3b) change in other crime
-  
-  #(we'd need relevant elasticities for prisons and police)
-  #(and some estimate of how they change, if they change)
-  #robbery
-  #assault
-  #rape
-  #and then we'd need to convert these to 'years of life'
-  #for now, as shorthand, we take our cues from Chalfin and McCary 2017
-  #and assume that homicide is ~70% of the costs of crime
-  consequences_raw[['othercrime']] <-
-    consequences_raw[['homicides']] * (995-693)/995
-  consequences[['othercrime']] <- 
-    consequences[['homicides']] * (995-693)/995 
+  #crime-specific calculation using NCVS volumes, CM2017 elasticities,
+  #Chalfin et al 2022 linear betas, and CM2017 welfare weights
+
+  consequences_raw[['othercrime']] <- 0
+  consequences[['othercrime']] <- 0
+
+  for(ctype in names(crime_params)) {
+    cp <- crime_params[[ctype]]
+
+    if(myPolFunctionalForm == 'linear') {
+      #linear: change = beta * officers_added, scaled by police effectiveness
+      crime_change_from_police <- cp$polBeta * myPoliceEffectiveness * police_added
+    } else {
+      #log-log: closed-form for police effect, elasticity scaled by multiplier
+      police_ratio <- policerate_proposed / (10^5 * police_2021/pop_2021)
+      if(police_ratio <= 0) police_ratio <- 0.001
+      scaled_polElast <- cp$polElast * myPoliceEffectiveness
+      crime_change_from_police <- cp$ncvs_volume * (police_ratio^scaled_polElast - 1)
+    }
+
+    #prison effect (log-log, crime-specific elasticity from Donohue, scaled by multiplier)
+    prison_ratio <- prisonrate_proposed_effective / round(10^5 * prisoners_2021/pop_2021)
+    if(prison_ratio <= 0) prison_ratio <- 0.001
+    scaled_prizElast <- cp$prizElast * myPrisonEffectiveness
+    crime_change_from_prison <- cp$ncvs_volume * (prison_ratio^scaled_prizElast - 1)
+
+    raw_change <- crime_change_from_police + crime_change_from_prison
+    consequences_raw[['othercrime']] <- consequences_raw[['othercrime']] + raw_change
+
+    if(myUnits == 'yearsoflife') {
+      consequences[['othercrime']] <- consequences[['othercrime']] + raw_change * cp$yolPerCrime
+    } else {
+      #in "lives" mode: convert to murder-equivalents
+      consequences[['othercrime']] <- consequences[['othercrime']] +
+        raw_change * cp$yolPerCrime / (life_expectancy_homvictim - mean_age_homvictim)
+    }
+  }
   
   #now we have a homicide rate, we can calculate police kilings
   if(myOrientation!='pessimistic_police_killings') {
