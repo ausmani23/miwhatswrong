@@ -162,6 +162,8 @@
   .crime-toggle td:first-child { font-weight: 600; }
   .crime-detail td { font-size: 0.7rem; color: #666; }
   .crime-detail td:first-child { padding-left: 0.8rem; }
+  .results-table tr.zeroed td { opacity: 0.30; text-decoration: line-through; }
+  .results-table tr.zeroed .good, .results-table tr.zeroed .bad { color: inherit; font-weight: normal; }
 
   .ref-points {
     margin-top: 1rem;
@@ -443,6 +445,19 @@
           <option value="off">Off (find best point in whole space)</option>
         </select>
       </div>
+
+      <div class="control-group">
+        <label>Whose Welfare?</label>
+        <select id="perspective" data-default="planner">
+          <option value="planner" selected>Social Planner (all harms)</option>
+          <option value="A">A: Crime-involved disadvantaged</option>
+          <option value="B">B: Vulnerable non-involved (elderly, women, children)</option>
+          <option value="C">C: Disadvantaged not involved in crime</option>
+          <option value="D">D: Racially profiled (policing only)</option>
+          <option value="E">E: Petty offenders (policing + prison, no crime)</option>
+        </select>
+        <p class="explainer">Ch. 14 fairness analysis. Each group's perspective zero-weights the harms they don't bear. A ignores police killings (uncertain direction). See book Ch. 14 for derivation.</p>
+      </div>
     </div>
 
     <hr class="section-sep">
@@ -488,9 +503,9 @@
             <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Burglary</td><td id="resBurgRaw">&mdash;</td><td id="resBurgRate">&mdash;</td><td id="resBurg">&mdash;</td></tr>
             <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;Theft</td><td id="resTheftRaw">&mdash;</td><td id="resTheftRate">&mdash;</td><td id="resTheft">&mdash;</td></tr>
             <tr class="crime-detail" style="display:none;"><td>&nbsp;&nbsp;MVT</td><td id="resMvtRaw">&mdash;</td><td id="resMvtRate">&mdash;</td><td id="resMvt">&mdash;</td></tr>
-            <tr><td>Prisoners</td><td id="resPrizRaw">&mdash;</td><td id="resPrizRate">&mdash;</td><td id="resPrisoners">&mdash;</td></tr>
-            <tr><td>Arrests</td><td id="resArrRaw">&mdash;</td><td id="resArrRate">&mdash;</td><td id="resArrests">&mdash;</td></tr>
-            <tr><td>Police Killings</td><td id="resPKRaw">&mdash;</td><td id="resPKRate">&mdash;</td><td id="resPolKill">&mdash;</td></tr>
+            <tr id="prizRow"><td>Prisoners</td><td id="resPrizRaw">&mdash;</td><td id="resPrizRate">&mdash;</td><td id="resPrisoners">&mdash;</td></tr>
+            <tr id="arrRow"><td>Arrests</td><td id="resArrRaw">&mdash;</td><td id="resArrRate">&mdash;</td><td id="resArrests">&mdash;</td></tr>
+            <tr id="pkRow"><td>Police Killings</td><td id="resPKRaw">&mdash;</td><td id="resPKRate">&mdash;</td><td id="resPolKill">&mdash;</td></tr>
             <tr class="total-row"><td>Net Welfare</td><td></td><td></td><td id="resTotal">&mdash;</td></tr>
           </tbody>
         </table>
@@ -865,9 +880,17 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
     converted.policeKillings = raw.policeKillings * stateViolMult;
   }
 
-  // --- TOTAL ---
-  const total = converted.prisoners + converted.arrests + converted.homicides +
-                converted.otherCrime + converted.policeKillings;
+  // --- TOTAL (with fairness perspective weights applied) ---
+  // Ch. 14 fairness analysis: each group's self-interested welfare
+  // zeros out harms they don't bear. "crime" lumps homicides + other
+  // crime. Social planner weights all categories equally.
+  const w = PERSPECTIVE_WEIGHTS[params.perspective || 'planner'] || PERSPECTIVE_WEIGHTS.planner;
+  const total =
+    w.prisoners       * converted.prisoners +
+    w.arrests         * converted.arrests +
+    w.crime           * converted.homicides +
+    w.crime           * converted.otherCrime +
+    w.policeKillings  * converted.policeKillings;
 
   // --- BUDGET ---
   const budget = (prisonersAdded * C.costPrisoner + policeAdded * C.costPolice) / 1e9;
@@ -877,7 +900,8 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
     budget,
     components: converted,
     raw,
-    crimeDetail
+    crimeDetail,
+    weights: w
   };
 }
 
@@ -945,9 +969,30 @@ function getParams() {
     units: document.getElementById('units').value,
     nonPenalReduction: +document.getElementById('nonPenalReduction').value / 100,
     stateViolMult: +document.getElementById('stateViolMult').value,
-    polFunctionalForm: document.getElementById('polFunctionalForm').value
+    polFunctionalForm: document.getElementById('polFunctionalForm').value,
+    perspective: document.getElementById('perspective').value
   };
 }
+
+// Ch. 14 fairness analysis: weights on each harm category from each
+// group's point of view. 1 = cares, 0 = does not bear this harm.
+// "Crime" = homicides + other crime (treated as one category).
+// Social planner weights all categories. See draft Ch. 14 (Fair Tradeoff).
+const PERSPECTIVE_WEIGHTS = {
+  planner: { crime: 1, prisoners: 1, arrests: 1, policeKillings: 1 },
+  // A: disadvantaged involved in crime — all harms except police killings
+  // (chapter: "we ignore the reduced risk of their being killed by police,
+  // since we are not sure which direction this tells")
+  A:       { crime: 1, prisoners: 1, arrests: 1, policeKillings: 0 },
+  // B: vulnerable non-involved (elderly, women, children) — crime only
+  B:       { crime: 1, prisoners: 0, arrests: 0, policeKillings: 0 },
+  // C: disadvantaged not involved in crime — crime + policing, no prison
+  C:       { crime: 1, prisoners: 0, arrests: 1, policeKillings: 1 },
+  // D: racially profiled middle-class — policing only
+  D:       { crime: 0, prisoners: 0, arrests: 1, policeKillings: 1 },
+  // E: small-time (white) offenders — policing + prison, no crime
+  E:       { crime: 0, prisoners: 1, arrests: 1, policeKillings: 1 }
+};
 
 function formatNum(n) {
   if (n === null || n === undefined || isNaN(n)) return '\u2014';
@@ -1312,6 +1357,22 @@ function updateBreakdown() {
   // Total
   setCell('resTotal', fmt(result.total), colorClass(result.total));
 
+  // Apply fairness-perspective dimming: zero-weighted rows get struck-through
+  const w = result.weights || PERSPECTIVE_WEIGHTS.planner;
+  const toggleZero = (rowId, weighted) => {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    row.classList.toggle('zeroed', !weighted);
+  };
+  toggleZero('crimeRow', w.crime);
+  // Also dim the expanded per-crime-type detail rows when crime is zeroed
+  document.querySelectorAll('.crime-detail').forEach(tr => {
+    tr.classList.toggle('zeroed', !w.crime);
+  });
+  toggleZero('prizRow', w.prisoners);
+  toggleZero('arrRow', w.arrests);
+  toggleZero('pkRow', w.policeKillings);
+
   // Breakdown bar chart (Crime = homicides + other crime combined)
   const categories = ['Crime', 'Prisoners', 'Arrests', 'Police Killings'];
   const values = [
@@ -1426,7 +1487,7 @@ function jumpTo(pol, priz) {
 });
 
 // Dropdown updates: recompute heatmap
-['units', 'budgetConstraint', 'polFunctionalForm'].forEach(id => {
+['units', 'budgetConstraint', 'polFunctionalForm', 'perspective'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     updateHeatmap();
     updateSentenceInfo();
