@@ -553,36 +553,100 @@ const C = {
   // Cost tradeoff slope
   get tradeoffSlope() { return -this.costPolice / this.costPrisoner; },
 
-  // Arrests per officer by type [IV_A, IV_B] from Chalfin et al 2020
-  arrestsViolent: [-0.603, -0.546],
-  arrestsProperty: [-0.374, -1.051],
-  arrestsDrug: [3.829, 5.934],
-  arrestsLiquor: [8.339, 14.243],
-
-  // Total arrests per officer [IV_A, IV_B]
-  get arrestsTotal() {
-    return [
-      -0.977 + 7.054 + 3.545,  // = 9.622
-      -1.597 + 22.086 + 1.646  // = 22.135
-    ];
+  // Chalfin et al 2020 arrests-per-officer coefficients
+  // [IV_A = ASG employment IV, IV_B = COPS hires IV]
+  // Table 11 (index): violent = murder+rape+rob+assault; property = burg+theft+MVT
+  // Table 12 (QoL): drug possession, liquor
+  // Table 13 (non-index): drug sale
+  // Note: violent and property are NEGATIVE — more police -> fewer
+  // index-crime arrests, presumably because fewer index crimes occur.
+  arrestsPerOfficer: {
+    violentIdx:   [-0.603, -0.546],
+    propertyIdx:  [-0.374, -1.051],
+    drugPoss:     [ 3.829,  5.934],
+    liquor:       [ 8.339, 14.243],
+    drugSale:     [ 0.269,  0.178]
   },
-
-  // E(prison-years served | arrest) by type
-  eprizPerViolentArrest: 0.746,
-  eprizPerPropertyArrest: 0.171,
-  eprizPerDrugArrest: 0.206,
-  get eprizPerLiquorArrest() { return this.eprizPerDrugArrest / 2; },
+  // Total arrests per officer (all Chalfin categories, summed)
+  // — used for welfare cost of arrests.
+  get arrestsTotal() { return [9.622, 22.135]; },
 
 };
 
 
 // ============================================================
-// DERIVED: EXTRA PRISONER-YEARS PER POLICE OFFICER
+// DERIVED: EXTRA PRISON-YEARS PER MARGINAL POLICE OFFICER
 // ============================================================
-const extraPrizFromPolice = {
-  bestguess: 0.47,
-  pessimistic: 0.66
-};
+// We derive this by backing out per-arrest prison-years from BJS
+// Prisoners 2021 stock composition, using Little's Law:
+//
+//   E[prison-years | arrest_c] = stock_c / annual_flow_c
+//
+// where stock_c is state + federal prisoners on offence c and
+// flow_c is annual arrests for offence c. This correctly handles
+// the fact that marginal Chalfin arrests are overwhelmingly
+// misdemeanor-class (drug possession, liquor) and rarely result
+// in state prison.
+//
+// CAVEAT — JAILS: Misdemeanor confinement happens in local jails,
+// not state prison. BJS prison stocks therefore UNDERSTATE total
+// confinement for drug/liquor arrests. TODO: supplement with BJS
+// jail statistics. See memory/project_jails_todo.md.
+//
+// This calculation mirrors code/thetradeoff_fwbalancecalcs.R. If
+// you update one, update both.
+// ============================================================
+const extraPrizFromPolice = (() => {
+  // ---- prison stocks 2021 (BJS Prisoners 2021 NCJ 305125 + BOP) ----
+  // State prisoners by offence (total state ~1,042,300)
+  const prisStateViolent  = 619800;
+  const prisStateProperty = 145200;
+  const prisStateDrug     = 135000;
+  const prisStatePubord   = 116900;
+  // Federal prisoners by offence (total federal ~156,500)
+  const prisFedViolent    =  12500;
+  const prisFedProperty   =   9400;
+  const prisFedDrug       =  70000;
+
+  // Decompose drug stock into possession vs trafficking.
+  // State: ~15% possession, 85% sale (NCRP pattern).
+  // Federal: ~1% possession, 99% sale (simple possession rarely federal).
+  const prisDrugPossession = prisStateDrug * 0.15 + prisFedDrug * 0.01;
+  const prisDrugSale       = prisStateDrug * 0.85 + prisFedDrug * 0.99;
+  // Liquor prisoners: very few. Assume ~5% of state public-order.
+  const prisLiquor = 0.05 * prisStatePubord;
+
+  // ---- annual arrest flows 2021 (FBI UCR) ----
+  const arrestsViolentIdx  =  440000;  // index violent
+  const arrestsPropertyIdx = 1100000;  // index property
+  const arrestsDrugTotal   = 1160000;
+  const arrestsDrugPoss    = Math.round(0.85 * arrestsDrugTotal);  // FBI: 85% of drug arrests are possession
+  const arrestsDrugSale    = arrestsDrugTotal - arrestsDrugPoss;
+  const arrestsLiquor      = 1100000;  // DUI + drunkenness + liquor laws
+
+  // ---- E[prison-years | arrest] by category (Little's Law) ----
+  const eprizViolent  = (prisStateViolent  + prisFedViolent)  / arrestsViolentIdx;
+  const eprizProperty = (prisStateProperty + prisFedProperty) / arrestsPropertyIdx;
+  const eprizDrugPoss = prisDrugPossession / arrestsDrugPoss;
+  const eprizDrugSale = prisDrugSale       / arrestsDrugSale;
+  const eprizLiquor   = prisLiquor         / arrestsLiquor;
+
+  // ---- Aggregate using Chalfin arrest coefficients (Tables 11-13) ----
+  const apo = C.arrestsPerOfficer;
+  const aggForIV = (i) =>
+    apo.violentIdx[i]  * eprizViolent  +
+    apo.propertyIdx[i] * eprizProperty +
+    apo.drugPoss[i]    * eprizDrugPoss +
+    apo.drugSale[i]    * eprizDrugSale +
+    apo.liquor[i]      * eprizLiquor;
+
+  const ivA = aggForIV(0);
+  const ivB = aggForIV(1);
+  return {
+    bestguess:   (ivA + ivB) / 2,   // ≈ -0.53
+    pessimistic: Math.max(ivA, ivB) // ≈ -0.51 (least-negative = most pessimistic about police)
+  };
+})();
 
 // ============================================================
 // FIRST-WORLD BALANCE POINT
@@ -675,14 +739,6 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
   const policeAdded = policeProposed - C.police;
   const prisonersAdded = prisonersProposed - C.prisoners;
 
-  // Effective prisoner adjustment (extra incarceration from police arrests)
-  const prisonersAddedEffective = prisonersAdded - policeAdded * extraPrizFromPolice.bestguess;
-  const prisonRateEffective = 1e5 * (C.prisoners + prisonersAddedEffective) / C.pop;
-
-  if (prisonRateEffective < 0) {
-    return { total: NaN, budget: NaN, components: null };
-  }
-
   // Prison quality multiplier: -1 = twice as bad as death (prizMult=2),
   // 0 = death (prizMult=1), 1 = free life (prizMult=0)
   const prizMult = 1 - prisonQuality;
@@ -690,6 +746,35 @@ function calculateCostsBenefits(policeRate, prisonRate, params) {
   // --- NON-PENAL CRIME REDUCTION ---
   const nonPenalFrac = params.nonPenalReduction || 0;
   const effectiveBaselineHomicides = C.homicides * (1 - nonPenalFrac);
+
+  // --- OFFSET: extra prison-years implied by marginal officer ---
+  // `extraPrizFromPolice` is derived from Chalfin 2020 arrest
+  // coefficients, which are conditional on the crime environment
+  // in Chalfin's sample. If the proposed policy also shifts crime
+  // (via prison changes or non-penal reduction), we scale the
+  // offset by `crimeRatio` = (crime under non-police interventions)
+  // / (crime at baseline). We exclude the police channel from the
+  // ratio because that feedback is already in Chalfin's
+  // coefficients — including it would double-count.
+  const prizRatioUncorrected = Math.max(prisonRate / C.prisonRate, 0.001);
+  // Non-penal reduction applies only to homicides (matching the rest
+  // of the model); other crime baselines are the raw NCVS volumes.
+  let crimeNoPolice = effectiveBaselineHomicides * Math.pow(prizRatioUncorrected, C.basePrizElast * (params.prisonEffect || 1));
+  let crimeBaseline = C.homicides;
+  for (const cp of Object.values(C.crimeTypes)) {
+    crimeBaseline += cp.volume;
+    const scaledPrizElast = cp.prizElast * (params.prisonEffect || 1);
+    crimeNoPolice += cp.volume * Math.pow(prizRatioUncorrected, scaledPrizElast);
+  }
+  const crimeRatio = crimeNoPolice / crimeBaseline;
+
+  const prisonersAddedEffective =
+    prisonersAdded - policeAdded * extraPrizFromPolice.bestguess * crimeRatio;
+  const prisonRateEffective = 1e5 * (C.prisoners + prisonersAddedEffective) / C.pop;
+
+  if (prisonRateEffective < 0) {
+    return { total: NaN, budget: NaN, components: null };
+  }
 
   // --- CONSEQUENCES ---
   const raw = {};

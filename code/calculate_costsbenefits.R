@@ -21,12 +21,8 @@
 setwd(datadir); dir()
 require(readxl); dir();
 
-#additional arrests per officer
-tmpdf<-readxl::read_xlsx('chalfin2020.xlsx') 
-arrests_perofficer_base <-c(
-  sum(as.numeric(unlist(tmpdf[c(9:15,34:43,58:71),4]))),
-  sum(as.numeric(unlist(tmpdf[c(24:30,45:54,73:86),4])))
-)  
+#arrests_perofficer_base is defined inside thetradeoff_fwbalancecalcs.R
+#(sourced below) using the same Chalfin 2020 row indices.
 
 #mean age of homicide victims
 tmpdf<-fread('SHR76_20.csv')
@@ -166,23 +162,53 @@ calculate_costsbenefits <- function(
   police_added <- (police_proposed - police_2021)
   police_added_percent <- (police_added + police_2021)/police_2021 - 1
   
-  #now, we have to account for the fact that, if we are hiring more police officers,
-  #our decline in prisoners is actually going to have to be effectively more aggressive
-  #this is because every police officer added leads to a little extra incarceration
-  #and so you have to 'effectively' increase incarceration by a bit more..
-  
-  #how many extra prisoners are effectively added depends on how many police officers we have hired
+  #Adding police affects the prison population via the arrests
+  #they make. This is captured by `extrapriz_frompolice`, which is
+  #derived in thetradeoff_fwbalancecalcs.R from Chalfin 2020 arrest
+  #coefficients * BJS per-arrest prison-years. At current values
+  #the number is NEGATIVE — a marginal officer reduces prison-years
+  #on net, because Chalfin's negative effect on index-crime arrests
+  #(more police -> fewer violent/property crimes -> fewer felony
+  #arrests) dominates the small positive effect on QoL arrests.
+  #
+  #`extrapriz_frompolice` is calibrated around the crime environment
+  #of Chalfin's sample. If the proposed policy also changes the
+  #prison rate (or applies other crime-reducing interventions),
+  #total crime shifts, and the marginal officer encounters more or
+  #less arrestable volume than Chalfin assumes. We correct by
+  #scaling the offset with `crime_ratio` = (crime under non-police
+  #interventions) / (crime at baseline). We exclude the police
+  #channel from the ratio because that feedback is already in
+  #Chalfin's arrest coefficients.
   extrapriz_frompolice_thisestimate <- ifelse(
-    myOrientation=='pessimistic_police_arrests', #if pessimistic..
+    myOrientation=='pessimistic_police_arrests',
     extrapriz_frompolice['pessimistic_police'],
     extrapriz_frompolice['bestguess']
   )
-  prisoners_added_effective <- 
-    prisoners_added + #the original added
-    -1 * (police_added * extrapriz_frompolice_thisestimate) #the extra decarceration necessary
-  prisonrate_proposed_effective <- 
+
+  #Crime ratio: prison channel only (police channel baked into
+  #Chalfin). Uses the uncorrected prisonrate_proposed as a first-
+  #order approximation; the residual Picard iteration is small
+  #because extrapriz_frompolice is already small.
+  prisonrate_baseline <- 10^5 * prisoners_2021 / pop_2021
+  prison_ratio_uncorrected <- prisonrate_proposed / prisonrate_baseline
+  if(prison_ratio_uncorrected <= 0) prison_ratio_uncorrected <- 0.001
+
+  crime_baseline <- homicides_2021 + sum(sapply(crime_params, function(cp) cp$ncvs_volume))
+  crime_no_police <- homicides_2021 * prison_ratio_uncorrected^homicide_prizElast
+  for(cp in crime_params) {
+    scaled_prizElast_ratio <- cp$prizElast * myPrisonEffectiveness
+    crime_no_police <- crime_no_police +
+      cp$ncvs_volume * prison_ratio_uncorrected^scaled_prizElast_ratio
+  }
+  crime_ratio <- crime_no_police / crime_baseline
+
+  prisoners_added_effective <-
+    prisoners_added +
+    -1 * (police_added * extrapriz_frompolice_thisestimate * crime_ratio)
+  prisonrate_proposed_effective <-
     round(10^5 * (prisoners_2021 + prisoners_added_effective)/pop_2021)
-  prisoners_added_percent_effective <- 
+  prisoners_added_percent_effective <-
     (prisoners_added_effective + prisoners_2021)/prisoners_2021 - 1
   
   #nb: this can result in us feeding a negative value for prisonrate_proposed

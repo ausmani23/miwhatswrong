@@ -206,26 +206,7 @@ calculate_homicides <- function(
   myPoliceEffectiveness=1.0, #multiplier on police elasticity
   myPrisonEffectiveness=1.0 #multiplier on prison elasticity
 ) {
-  
-  
-  priz0 = round(10^5 * prisoners_2019/pop_2019)
-  prizf = prisonrate_proposed_effective
-  pol0 = 10^5 * (police_2019)/pop_2019
-  polf = 10^5 * (police_2019+500000)/pop_2019
-  y0 = homicides_2019
-  delta = 1
-  myOrientation='bestguess'
-  myElasticities='constant'
-  
-  # priz0<-700
-  # prizf<-211
-  # pol0<-212
-  # polf<-250
-  # y0<-20000
-  # delta<-1
-  epriz0<-eprizf<-epol0<-epolf<-NULL
-  # myOrientation='bestguess'
-  
+
   if(is.null(eprizf) & is.null(epriz0))  {
     epriz0 <- getPrizElast(priz0,y0) * myPrisonEffectiveness
     epol0 <- getPolElast(pol0,y0) * myPoliceEffectiveness
