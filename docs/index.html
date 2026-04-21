@@ -568,98 +568,206 @@ const C = {
   // Cost tradeoff slope
   get tradeoffSlope() { return -this.costPolice / this.costPrisoner; },
 
-  // Chalfin et al 2020 arrests-per-officer coefficients
-  // [IV_A = ASG employment IV, IV_B = COPS hires IV]
-  // Table 11 (index): violent = murder+rape+rob+assault; property = burg+theft+MVT
-  // Table 12 (QoL): drug possession, liquor
-  // Table 13 (non-index): drug sale
-  // Note: violent and property are NEGATIVE — more police -> fewer
-  // index-crime arrests, presumably because fewer index crimes occur.
-  arrestsPerOfficer: {
-    violentIdx:   [-0.603, -0.546],
-    propertyIdx:  [-0.374, -1.051],
-    drugPoss:     [ 3.829,  5.934],
-    liquor:       [ 8.339, 14.243],
-    drugSale:     [ 0.269,  0.178]
-  },
-  // Total arrests per officer (all Chalfin categories, summed)
-  // — used for welfare cost of arrests.
+  // Total arrests per officer across all Chalfin 2020 categories
+  // (sum of every β_c in Tables 11, 12, 13 — includes Uncategorized
+  // and Runaway, which are real marginal arrests carrying welfare
+  // cost even though excluded from the offset calc). IV_A = ASG
+  // Employment, IV_B = COPS Eligible Hires.
   get arrestsTotal() { return [9.622, 22.135]; },
 
 };
 
 
 // ============================================================
-// DERIVED: EXTRA PRISON-YEARS PER MARGINAL POLICE OFFICER
+// DERIVED: EXTRA CONFINEMENT-YEARS PER MARGINAL POLICE OFFICER
 // ============================================================
-// We derive this by backing out per-arrest prison-years from BJS
-// Prisoners 2021 stock composition, using Little's Law:
+// Little's Law applied at fine Chalfin-category grain over
+// prison + jail stocks (2019, pre-COVID). See
+// code/thetradeoff_fwbalancecalcs.R for derivation, caveats, and
+// open robustness checks. Mirror in lockstep: update both.
 //
-//   E[prison-years | arrest_c] = stock_c / annual_flow_c
+//   E[confinement-yrs | arrest_c] = stock_c / arrests_c
+//   extrapriz_frompolice = Σ_c β_c × E[confinement-yrs | arrest_c]
 //
-// where stock_c is state + federal prisoners on offence c and
-// flow_c is annual arrests for offence c. This correctly handles
-// the fact that marginal Chalfin arrests are overwhelmingly
-// misdemeanor-class (drug possession, liquor) and rarely result
-// in state prison.
+// Stock inputs:
+//   - state prison: BJS Prisoners 2019 Table 14 (Dec 31 2018)
+//   - federal prison: BJS Prisoners 2019 Table 16 (Sept 30 2019)
+//   - jail: Census of Jails 2019 (midyear) × SILJ 2002 Table 3
+//     offense shares
 //
-// CAVEAT — JAILS: Misdemeanor confinement happens in local jails,
-// not state prison. BJS prison stocks therefore UNDERSTATE total
-// confinement for drug/liquor arrests. TODO: supplement with BJS
-// jail statistics. See memory/project_jails_todo.md.
-//
-// This calculation mirrors code/thetradeoff_fwbalancecalcs.R. If
-// you update one, update both.
+// Known bias (documented in R file): plea-down inflation of
+// low-severity sub-categories; under-counts pleas-out from
+// high-severity. At major-group level these wash out, giving a
+// less favorable bound of ~+4.44. Fine grain below is closer to
+// reality if internal splits of BJS "Other public-order" are
+// approximately right. Point estimate ≈ +0.45, sensitivity band
+// [0, +1.5]. Open robustness: SPI 2016 3-digit NCRP codes.
 // ============================================================
 const extraPrizFromPolice = (() => {
-  // ---- prison stocks 2021 (BJS Prisoners 2021 NCJ 305125 + BOP) ----
-  // State prisoners by offence (total state ~1,042,300)
-  const prisStateViolent  = 619800;
-  const prisStateProperty = 145200;
-  const prisStateDrug     = 135000;
-  const prisStatePubord   = 116900;
-  // Federal prisoners by offence (total federal ~156,500)
-  const prisFedViolent    =  12500;
-  const prisFedProperty   =   9400;
-  const prisFedDrug       =  70000;
+  // ---------- State prison (sentenced, Dec 31 2018) ----------
+  const sMurder     = 177700 + 18600;  // murder/nonneg.mans + neg.mans
+  const sRapeSex    = 162700;
+  const sRobbery    = 155000;
+  const sAssault    = 135900;          // agg+simple, BJS lumped
+  const sOtherViol  =  43500;
+  const sBurglary   = 106500;
+  const sLarceny    =  38700;
+  const sMvt        =  10200;
+  const sFraud      =  22400;
+  const sOtherPropBjs = 21900;         // arson+vandalism+stolen+other catchall
+  const sDrugPoss   =  46500;
+  const sDrugTraf   = 129900;          // BJS "Other" drug (~trafficking)
+  const sWeapons    =  58000;
+  const sDui        =  21400;
+  const sOtherPubBjs = 73800;          // see split below
 
-  // Decompose drug stock into possession vs trafficking.
-  // State: ~15% possession, 85% sale (NCRP pattern).
-  // Federal: ~1% possession, 99% sale (simple possession rarely federal).
-  const prisDrugPossession = prisStateDrug * 0.15 + prisFedDrug * 0.01;
-  const prisDrugSale       = prisStateDrug * 0.85 + prisFedDrug * 0.99;
-  // Liquor prisoners: very few. Assume ~5% of state public-order.
-  const prisLiquor = 0.05 * prisStatePubord;
+  // ---------- Federal prison (sentenced, Sept 30 2019) ----------
+  const fHomicide   =  2663, fRapeSex = 1321, fRobbery = 5521;
+  const fOtherViol  =  2707, fBurglary = 292, fFraud = 6637;
+  const fOtherProp  =  1471, fDrug = 73210, fWeapons = 29327;
 
-  // ---- annual arrest flows 2021 (FBI UCR) ----
-  const arrestsViolentIdx  =  440000;  // index violent
-  const arrestsPropertyIdx = 1100000;  // index property
-  const arrestsDrugTotal   = 1160000;
-  const arrestsDrugPoss    = Math.round(0.85 * arrestsDrugTotal);  // FBI: 85% of drug arrests are possession
-  const arrestsDrugSale    = arrestsDrugTotal - arrestsDrugPoss;
-  const arrestsLiquor      = 1100000;  // DUI + drunkenness + liquor laws
+  // ---------- Jail (midyear 2019) ----------
+  const jTotal = 734470;
+  // SILJ 2002 Table 3 sub-category shares (Total column).
+  const silj = {
+    murder: 0.020, negMans: 0.005, kidnap: 0.007, rape: 0.006,
+    otherSex: 0.028, robbery: 0.056, assault: 0.117, otherViol: 0.014,
+    burglary: 0.067, larceny: 0.070, mvt: 0.020, arson: 0.003,
+    fraud: 0.049, stolen: 0.017, otherProp: 0.018,
+    drugPoss: 0.108, drugTraf: 0.121, drugOther: 0.018,
+    weapons: 0.020, obstruction: 0.039, traffic: 0.037, dwi: 0.064,
+    drunkMorals: 0.017, probParoleViol: 0.029, immig: 0.018,
+    otherPub: 0.025
+  };
+  const jf = (share) => jTotal * share;
 
-  // ---- E[prison-years | arrest] by category (Little's Law) ----
-  const eprizViolent  = (prisStateViolent  + prisFedViolent)  / arrestsViolentIdx;
-  const eprizProperty = (prisStateProperty + prisFedProperty) / arrestsPropertyIdx;
-  const eprizDrugPoss = prisDrugPossession / arrestsDrugPoss;
-  const eprizDrugSale = prisDrugSale       / arrestsDrugSale;
-  const eprizLiquor   = prisLiquor         / arrestsLiquor;
+  // ---------- Internal splits of BJS catchalls (judgment calls) ----------
+  // State "Other public-order" (73,800): prob/parole viol 55%, court 15%,
+  // morals 10%, liquor 5%, other 15%.
+  const sPubordMorals = 0.10 * sOtherPubBjs;
+  const sPubordLiquor = 0.05 * sOtherPubBjs;
 
-  // ---- Aggregate using Chalfin arrest coefficients (Tables 11-13) ----
-  const apo = C.arrestsPerOfficer;
+  // State "Other property" (21,900): arson 15%, vandalism 20%, stolen 30%.
+  const sArson     = 0.15 * sOtherPropBjs;
+  const sVandalism = 0.20 * sOtherPropBjs;
+  const sStolen    = 0.30 * sOtherPropBjs;
+
+  // SILJ jail "Other public-order" (2.5% bucket): liquor ~30% of it.
+  const jPubordLiquor = 0.30 * jf(silj.otherPub);
+  // SILJ jail "Other property" (1.8%): vandalism ~40% of it.
+  const jVandalism    = 0.40 * jf(silj.otherProp);
+
+  // ---------- UCR 2019 arrests (Table 29 + drug split) ----------
+  const aMurder = 11060, aRape = 24986, aRobbery = 74547;
+  const aAggAssault = 385278, aOtherAssault = 1025711;
+  const aBurglary = 171590, aLarceny = 813073, aMvt = 80636, aArson = 9068;
+  const aFraud = 112707, aForgery = 45183, aEmbezzle = 13497;
+  const aStolen = 88272, aVandalism = 180501;
+  const aWeapons = 153161, aProstitut = 26713, aSexOffens = 40796;
+  const aDrugTotal = 1558862;
+  const aDrugPoss = Math.round(aDrugTotal * 0.867);  // UCR Arrest Table
+  const aDrugSale = aDrugTotal - aDrugPoss;
+  const aGambling = 2458, aFamily = 85687;
+  const aDui = 1024508, aLiquor = 175548;
+  const aDrunken = 316032, aDisorder = 310331, aVagrancy = 21896;
+  const aSuspicion = 579, aCurfew = 14653;
+
+  // ---------- E[confinement-yrs | arrest_c] at fine grain ----------
+  const eMurder     = (sMurder + fHomicide + jf(silj.murder + silj.negMans)) / aMurder;
+  const eRapeSex    = (sRapeSex + fRapeSex + jf(silj.rape + silj.otherSex)) / (aRape + aSexOffens);
+  const eRobbery    = (sRobbery + fRobbery + jf(silj.robbery)) / aRobbery;
+  const eAssault    = (sAssault + jf(silj.assault)) / (aAggAssault + aOtherAssault);
+  const eOtherViol  = (sOtherViol + fOtherViol + jf(silj.otherViol + silj.kidnap)) / aFamily;
+
+  const eBurglary   = (sBurglary + fBurglary + jf(silj.burglary)) / aBurglary;
+  const eLarceny    = (sLarceny + jf(silj.larceny)) / aLarceny;
+  const eMvtCat     = (sMvt + jf(silj.mvt)) / aMvt;
+  const eFraudGrp   = (sFraud + fFraud + jf(silj.fraud)) / (aFraud + aForgery + aEmbezzle);
+  const eArson      = (sArson + jf(silj.arson)) / aArson;
+  const eVandalism  = (sVandalism + jVandalism) / aVandalism;
+  const eStolenProp = (sStolen + jf(silj.stolen)) / aStolen;
+
+  const eDrugPoss   = (sDrugPoss + fDrug * 0.01 + jf(silj.drugPoss)) / aDrugPoss;
+  const eDrugSale   = (sDrugTraf + fDrug * 0.99 + jf(silj.drugTraf + silj.drugOther)) / aDrugSale;
+
+  const eWeapons    = (sWeapons + fWeapons + jf(silj.weapons)) / aWeapons;
+  const eDui        = (sDui + jf(silj.dwi)) / aDui;
+  const eLiquor     = (sPubordLiquor + jPubordLiquor) / aLiquor;
+  const aMoralsCluster = aDisorder + aDrunken + aVagrancy + aProstitut + aGambling;
+  const eMoralsCluster = (sPubordMorals + jf(silj.drunkMorals)) / aMoralsCluster;
+  const eCurfewSusp = 0.003;   // placeholder lower-bound; no confinement stock
+
+  // ---------- Chalfin 2020 β coefficients (Tables 11, 12, 13) ----------
+  // [IV_A = ASG Employment, IV_B = COPS Eligible Hires]
+  const bMurder       = [ 0.027, -0.044];
+  const bRape         = [ 0.030, -0.007];
+  const bRobbery      = [-0.605, -0.994];
+  const bAggAssault   = [-0.055,  0.499];
+  const bBurglary     = [ 0.140, -0.416];
+  const bLarceny      = [ 0.032, -0.013];
+  const bMvt          = [-0.546, -0.622];
+  // Table 12 QoL (10 rows; Uncategorized excluded)
+  const bDisorder     = [ 1.178,  1.182];
+  const bSuspicion    = [-0.011, -0.014];
+  const bCurfew       = [-0.103,  1.775];
+  const bVandalism    = [-0.013, -0.111];
+  const bVagrancy     = [-0.082, -0.285];
+  const bGambling     = [ 0.334,  0.278];
+  const bDrunken      = [ 0.184,  0.136];
+  const bLiquor       = [ 8.339, 14.243];
+  const bDrugPoss     = [ 3.829,  5.934];
+  // Table 13 non-index (14 rows; Runaway excluded from β aggregation)
+  const bNegMans      = [ 0.001,  0.000];
+  const bArson        = [ 0.004,  0.001];
+  const bOtherAssault = [ 0.797,  1.079];
+  const bFamily       = [ 0.015,  0.000];
+  const bWeapons      = [-0.079, -0.175];
+  const bProstitut    = [ 0.051,  0.092];
+  const bOtherSex     = [ 0.338,  0.520];
+  const bDui          = [ 1.083, -0.092];
+  const bDrugSale     = [ 0.269,  0.178];
+  const bForgery      = [ 0.434,  0.435];
+  const bFraud        = [ 0.812, -0.117];
+  const bEmbezzle     = [ 0.008,  0.015];
+  const bStolen       = [-0.123, -0.354];
+
+  // ---------- Aggregate β_c × E_c ----------
   const aggForIV = (i) =>
-    apo.violentIdx[i]  * eprizViolent  +
-    apo.propertyIdx[i] * eprizProperty +
-    apo.drugPoss[i]    * eprizDrugPoss +
-    apo.drugSale[i]    * eprizDrugSale +
-    apo.liquor[i]      * eprizLiquor;
+    bMurder[i]       * eMurder      +
+    bNegMans[i]      * eMurder      +
+    bRape[i]         * eRapeSex     +
+    bOtherSex[i]     * eRapeSex     +
+    bRobbery[i]      * eRobbery     +
+    bAggAssault[i]   * eAssault     +
+    bOtherAssault[i] * eAssault     +
+    bFamily[i]       * eOtherViol   +
+    bBurglary[i]     * eBurglary    +
+    bLarceny[i]      * eLarceny     +
+    bMvt[i]          * eMvtCat      +
+    bArson[i]        * eArson       +
+    bFraud[i]        * eFraudGrp    +
+    bForgery[i]      * eFraudGrp    +
+    bEmbezzle[i]     * eFraudGrp    +
+    bStolen[i]       * eStolenProp  +
+    bVandalism[i]    * eVandalism   +
+    bDrugPoss[i]     * eDrugPoss    +
+    bDrugSale[i]     * eDrugSale    +
+    bWeapons[i]      * eWeapons     +
+    bDui[i]          * eDui         +
+    bLiquor[i]       * eLiquor      +
+    bDrunken[i]      * eMoralsCluster +
+    bDisorder[i]     * eMoralsCluster +
+    bVagrancy[i]     * eMoralsCluster +
+    bProstitut[i]    * eMoralsCluster +
+    bGambling[i]     * eMoralsCluster +
+    bCurfew[i]       * eCurfewSusp  +
+    bSuspicion[i]    * eCurfewSusp;
 
   const ivA = aggForIV(0);
   const ivB = aggForIV(1);
   return {
-    bestguess:   (ivA + ivB) / 2,   // ≈ -0.53
-    pessimistic: Math.max(ivA, ivB) // ≈ -0.51 (least-negative = most pessimistic about police)
+    bestguess:   (ivA + ivB) / 2,   // ≈ +0.45
+    pessimistic: Math.max(ivA, ivB) // ≈ +1.77 (most pessimistic = largest positive)
   };
 })();
 
