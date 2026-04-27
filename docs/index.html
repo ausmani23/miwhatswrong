@@ -599,9 +599,10 @@ const C = {
 // low-severity sub-categories; under-counts pleas-out from
 // high-severity. At major-group level these wash out, giving a
 // less favorable bound of ~+4.44. Fine grain below is closer to
-// reality if internal splits of BJS "Other public-order" are
-// approximately right. Point estimate ≈ +0.45, sensitivity band
-// [0, +1.5]. Open robustness: SPI 2016 3-digit NCRP codes.
+// reality. Point estimate ≈ +0.01 (essentially zero) after SPI
+// 2016 (state prison) + JDI 2024 (jail) robustness checks.
+// History: +0.45 (judgment splits) → +0.22 (SPI tightens prison
+// splits) → +0.01 (JDI tightens jail liquor share, 30% → 12%).
 // ============================================================
 const extraPrizFromPolice = (() => {
   // ---------- State prison (sentenced, Dec 31 2018) ----------
@@ -641,19 +642,32 @@ const extraPrizFromPolice = (() => {
   };
   const jf = (share) => jTotal * share;
 
-  // ---------- Internal splits of BJS catchalls (judgment calls) ----------
-  // State "Other public-order" (73,800): prob/parole viol 55%, court 15%,
-  // morals 10%, liquor 5%, other 15%.
-  const sPubordMorals = 0.10 * sOtherPubBjs;
-  const sPubordLiquor = 0.05 * sOtherPubBjs;
+  // ---------- Internal splits of BJS catchalls ----------
+  // State "Other public-order" (73,800): SPI 2016 empirical shares
+  // (claude_workspace/spi_pubord_v2.R). Among RV0036==12 EXCL. DUI:
+  //   prob/parole viol (NCRP 490+500):           0.001
+  //   court offenses (530 contempt + 540 perj):  0.292
+  //   morals/comm.vice (600 lewdness + 640 vice):0.161
+  //   liquor (660):                              0.002
+  //   other (escape/flight/riot/family/etc.):    0.544
+  // Only morals and liquor enter the offset; others are decorative.
+  // sPubordMorals uses NARROW match (NCRP 590 drunken/vagrant/disorder
+  // + 640 commercial vice = 0.109) since UCR a_morals_cluster matches
+  // disorder+drunken+vagrancy+prostitut+gambling, not lewdness.
+  const sPubordMorals = 0.109 * sOtherPubBjs;
+  const sPubordLiquor = 0.002 * sOtherPubBjs;
 
   // State "Other property" (21,900): arson 15%, vandalism 20%, stolen 30%.
   const sArson     = 0.15 * sOtherPropBjs;
   const sVandalism = 0.20 * sOtherPropBjs;
   const sStolen    = 0.30 * sOtherPropBjs;
 
-  // SILJ jail "Other public-order" (2.5% bucket): liquor ~30% of it.
-  const jPubordLiquor = 0.30 * jf(silj.otherPub);
+  // SILJ jail "Other public-order" (2.5% bucket): liquor share
+  // anchored on PPI/JDI April 2025 analysis of Feb 2024 snapshot
+  // (liquor laws = 0.3% of all jail charges nationally → ~2,200
+  // inmates / 18,362 SILJ "other_pub" stock = 12%). Was 30%
+  // judgment, a 2.5× overstatement.
+  const jPubordLiquor = 0.12 * jf(silj.otherPub);
   // SILJ jail "Other property" (1.8%): vandalism ~40% of it.
   const jVandalism    = 0.40 * jf(silj.otherProp);
 

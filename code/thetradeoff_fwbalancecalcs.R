@@ -27,14 +27,15 @@
 #      real confinement caused by arrests.
 #   3) Uses 2019 pre-COVID inputs throughout.
 #
-# The new point estimate is roughly +0.45 (bestguess mean across
-# the two IVs), with a plausible sensitivity band of [0, +1.5]
-# depending on internal splits of BJS state prison "Other
-# public-order" bucket (see below). The sign flip from v1's
-# −0.53 is driven overwhelmingly by #1 above — Chalfin finds
-# that a marginal officer makes ~20 additional QoL/non-index
-# arrests per year, and even small per-arrest confinement-years
-# multiply out to a meaningful positive contribution.
+# Point estimate +0.01 (bestguess mean across the two IVs),
+# with pessimistic_police +1.45. The bestguess collapse from
+# v4's +0.45 came in two steps: SPI 2016 robustness on state-
+# prison pub-order splits dropped it to +0.22, then JDI 2024
+# robustness on jail "Other public-order" liquor share dropped
+# it to ~zero. Pessimistic_police remains comfortably positive.
+# The sign of bestguess is now ambiguous: small positive at
+# point estimate, with sensitivity easily flipping it negative
+# under reasonable parameter perturbations.
 #
 # ------- METHODOLOGY --------
 #
@@ -67,29 +68,34 @@
 # At MAJOR-GROUP level (violent/property/drug/public-order),
 # within-group plea-downs wash out exactly. A group-level
 # alternative gives +4.44 (upper bound). The fine-grained
-# calculation below gives +0.45 — the gap reflects combined
+# calculation below gives +0.01 — the gap reflects combined
 # plea-down bias + the homogeneity bias of group-level
 # aggregation (treats weapons and liquor arrests identically
 # within pub-order). Neither is perfect; fine-grained below is
-# closer to reality if our internal-split guesses for BJS
-# catchalls are right.
+# closer to reality.
 #
 # Between-group plea-downs (e.g., robbery → larceny) are not
 # corrected. They are likely small at the Chalfin β-weighted
 # sum level since Chalfin's large β's are mostly on QoL/non-
 # index where between-group plea-downs are rare.
 #
-# ------- OPEN ROBUSTNESS CHECK -------
+# ------- SPI 2016 ROBUSTNESS CHECK (DONE 2026-04-27) -------
 #
-# The point estimate is sensitive to how we split BJS state
-# prison "Other public-order" (73,800 prisoners) across
-# probation/parole violations / court offences / morals /
-# liquor / other. Published tables don't split it. SPI 2016
-# public-use file (ICPSR 37692) has 3-digit NCRP codes per
-# prisoner in variables V0088-V0091, V0114-V0117, V0140-V0143,
-# etc.; pulling those and identifying the controlling-offense
-# code per respondent would tighten the [0, +1.5] band. Flagged
-# for a future session.
+# Earlier versions used judgment-call shares for splitting the
+# BJS state-prison "Other public-order" 73,800 bucket: 55%
+# prob/parole, 15% court, 10% morals, 5% liquor, 15% other.
+# Replaced with empirical SPI 2016 shares (RV0036==12 EXCL. DUI,
+# weighted): 0.1% prob/parole, 29% court, 16% morals/comm.vice,
+# 0.2% liquor, 54% other. The 55% prob/parole prior turned out
+# to be a 500x overstatement — almost no SPI respondents have
+# NCRP code 490 or 500 as their controlling offense, because
+# prob/parole violators are typically classified by their
+# underlying offense, not as "490/500 violation". Of the five
+# splits only morals (now 0.109) and liquor (now 0.002) enter
+# the offset; the change in liquor (5% → 0.2%, 25× lower)
+# accounts for nearly all of the bestguess drop from +0.45 to
+# +0.22, since β_liquor in Chalfin Table 12 is large positive.
+# Derivation: claude_workspace/spi_pubord_v2.R
 #============================================================
 
 #------------------------------------------------------------
@@ -162,17 +168,41 @@ jfine <- function(share) j_total * share
 
 #------------------------------------------------------------
 # STEP 4: INTERNAL SPLITS OF BJS CATCHALL BUCKETS
-# These shares are judgment calls; documented each.
 #------------------------------------------------------------
-# BJS state "Other public-order" (73,800): footnote e lists five
-# components. Indicative shares from prior BJS/SPI studies:
-#   probation/parole violations ~55%, court offenses ~15%,
-#   morals/commercialized vice ~10%, liquor ~5%, other ~15%.
-s_pubord_probparole <- 0.55 * s_otherpub_bjs
-s_pubord_court      <- 0.15 * s_otherpub_bjs
-s_pubord_morals     <- 0.10 * s_otherpub_bjs
-s_pubord_liquor     <- 0.05 * s_otherpub_bjs
-s_pubord_otherres   <- 0.15 * s_otherpub_bjs
+# BJS state "Other public-order" (73,800): footnote e of BJS
+# Prisoners 2019 Table 14 lists five components but does NOT
+# provide percentages. Earlier code used judgment-call shares
+# (55/15/10/5/15) which turned out to overstate prob/parole and
+# liquor by ~25× and understate court offenses by ~3×.
+#
+# Replaced with SPI 2016 empirical shares. Method: among RV0036==12
+# (Other Public Order, n=1,827, weighted ≈102k state prisoners,
+# matches the 73,800 + 21,400 DUI sum closely after excluding DUI),
+# we take the first NCRP3 code in the public-order range across
+# all 12 CJ-status blocks × 5 positions, then bucket per the BJS
+# NCRP code dictionary. Derivation script:
+# claude_workspace/spi_pubord_v2.R
+#
+# Empirical shares within (RV0036==12 EXCL. DUI), N≈71,558:
+#   prob/parole viol (490+500):                  0.001
+#   court offenses (530 contempt + 540 perjury): 0.292
+#   morals/comm.vice (600 lewdness + 640 vice):  0.161
+#   liquor (660):                                0.002
+#   other (escape, flight, riot, habitual,
+#     family, drunken, immig, obstr, etc):       0.544
+#
+# Of these only s_pubord_morals and s_pubord_liquor enter the
+# offset calc (Step 8); the others are documentation only.
+# Note s_pubord_morals uses the NARROW match (NCRP 590 drunken/
+# vagrant/disorder + 640 commercial vice) = 0.109, since that
+# matches the UCR arrest categories used in e_morals_cluster
+# (disorder + drunken + vagrancy + prostitut + gambling). NCRP
+# 600 lewdness is morals-decency but not in those UCR rows.
+s_pubord_probparole <- 0.001 * s_otherpub_bjs
+s_pubord_court      <- 0.292 * s_otherpub_bjs
+s_pubord_morals     <- 0.109 * s_otherpub_bjs   # 590 + 640 (offset-relevant)
+s_pubord_liquor     <- 0.002 * s_otherpub_bjs   # 660 (offset-relevant)
+s_pubord_otherres   <- 0.596 * s_otherpub_bjs   # residual (1 - sum above)
 
 # BJS state "Other property" (21,900): includes arson, vandalism,
 # stolen property, other. Rough shares: arson 15%, vandalism 20%,
@@ -183,11 +213,19 @@ s_stolen    <- 0.30 * s_otherprop_bjs
 s_othprop_res <- 0.35 * s_otherprop_bjs
 
 # SILJ jail "Other public-order" (2.5% bucket): liquor share
-# guessed at 30% (with rioting, abandonment, nonsupport, tax
-# evasion comprising the rest).
+# anchored on PPI/JDI April 2025 analysis of Feb 2024 snapshot
+# (251,671 inmates × 977,728 charges across 865 jail rosters):
+# liquor laws are 0.3% of all jail charges nationally. Applying
+# that share to 2019 jail stock 734,470 ≈ 2,200 inmates with
+# liquor as controlling charge → 2,200 / 18,362 ≈ 12% within
+# the SILJ "other_pub" bucket (was 30% by judgment, a 2.5×
+# overstatement). Caveats: JDI is a non-probability sample,
+# 2024 snapshot mapped to 2019 stock, and "0.3% of charges" vs
+# "0.3% of inmates" differ slightly in interpretation. Source:
+# https://www.prisonpolicy.org/blog/2025/04/17/jdi_jail_offenses/
 j_otherpub_total  <- jfine(silj$other_pub)
-j_pubord_liquor   <- 0.30 * j_otherpub_total
-j_pubord_otherres <- 0.70 * j_otherpub_total
+j_pubord_liquor   <- 0.12 * j_otherpub_total
+j_pubord_otherres <- 0.88 * j_otherpub_total
 
 # SILJ jail "Other property" (1.8% bucket) has no explicit
 # vandalism row. Assume 40% is vandalism.
@@ -384,13 +422,14 @@ extrapriz_frompolice <- c(
   pessimistic_police = max(extrapriz_frompolice)
 )
 
-# With 2019 inputs and fine-grained pub-order splits, this yields
-# approximately:
-#   bestguess          ≈ +0.45
-#   pessimistic_police ≈ +1.77
-# i.e. the marginal officer ADDS confinement-years on net, driven
-# by the large β Chalfin finds on QoL and non-index arrests.
-# See header for sensitivity band [0, +1.5] around internal splits.
+# With 2019 inputs, fine-grained pub-order splits, SPI 2016
+# state-prison shares, and JDI 2024 jail liquor anchor, this
+# yields approximately:
+#   bestguess          ≈ +0.01
+#   pessimistic_police ≈ +1.45
+# At the bestguess point estimate the marginal officer is
+# roughly neutral on confinement-years; the band straddles
+# zero. Pessimistic_police remains substantially positive.
 
 #------------------------------------------------------------
 # STEP 9: Arrests per officer (TOTAL), for welfare cost of
