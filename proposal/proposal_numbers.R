@@ -163,7 +163,42 @@ for (yrs in list(1965:1969, 1970:1974)) {
 #########################################################
 #########################################################
 
-#4. SPENDING
+#4. DRUG OFFENDERS (UNODC prisoners by offense)
+
+#Share of sentenced prisoners held for drug offenses. Numerator: UNODC's
+#'drug' total where reported, otherwise trafficking plus possession; the
+#denominator is UNODC's count of sentenced prisoners. Median across UNODC
+#releases within a country-year (these rows are not maindata).
+
+cat('\n--- Drug offenders ---\n')
+
+drugdf <- readRDS(p2pdf_file)
+setDT(drugdf)
+drugdf <- drugdf[
+  bigcountries==T & countrycompset=='Rich' & !grepl('Fake', cownum) &
+    !countryname %in% c('United Kingdom (composite)','United Kingdom') &
+    grepl('unodc', source) & statistic %in% c('prisoners','prisoners_sentenced') &
+    is.na(gender) & is.na(age) & is.na(sentence) & year %in% recent
+]
+num <- drugdf[crime %in% c('drug','drugtraffic','drugpossession'),
+              .(v=median(value)), by=c('countryname','usa','year','crime')]
+num <- dcast(num, countryname + usa + year ~ crime, value.var='v')
+for (v in c('drug','drugtraffic','drugpossession')) if (!v %in% names(num)) num[, (v) := NA_real_]
+num[, drugs := fifelse(!is.na(drug), drug, rowSums(cbind(drugtraffic, drugpossession), na.rm=T))]
+den <- drugdf[statistic=='prisoners_sentenced' & is.na(crime),
+              .(sentenced=median(value)), by=c('countryname','year')]
+drugs <- merge(num, den, by=c('countryname','year'))[, .(v=mean(100*drugs/sentenced)), by=c('countryname','usa')]
+rm(drugdf)
+
+report('Drug offenders, % of sentenced prisoners, US (2015-24)', round(drugs[usa==T, v],1))
+report('Drug offenders, % of sentenced prisoners, median rich', round(drugs[usa==F, median(v)],1),
+       sprintf('%d countries; 20th-80th pct %.0f-%.0f%%', drugs[usa==F, .N],
+               drugs[usa==F, quantile(v,.2)], drugs[usa==F, quantile(v,.8)]))
+
+#########################################################
+#########################################################
+
+#5. SPENDING
 
 cat('\n--- Penal and social spending ---\n')
 
@@ -186,7 +221,7 @@ report('Social / penal spending, median rich democracy', round(ratio[usa==F, med
 #########################################################
 #########################################################
 
-#5. PRISONERS AND POLICE
+#6. PRISONERS AND POLICE
 
 cat('\n--- Prisoners and police ---\n')
 
@@ -216,7 +251,7 @@ for (var in c('homicides_rate','prisoners_rate')) {
 #########################################################
 #########################################################
 
-#6. THE FIRST WORLD BALANCE
+#7. THE FIRST WORLD BALANCE
 
 #The budget-neutral swap from prisons to police (Lewis and Usmani 2022):
 #move along the line that holds penal spending fixed, at the relative costs
@@ -243,7 +278,7 @@ report('First World Balance: additional police officers', round(Q_new - Q))
 #########################################################
 #########################################################
 
-#7. REDISTRIBUTION (OECD)
+#8. REDISTRIBUTION (OECD)
 
 cat('\n--- Redistribution (OECD Income Distribution Database) ---\n')
 
