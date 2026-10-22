@@ -632,7 +632,7 @@ plotdf[,c('countryname','policekillings')]
 
 #there is a negative relationship in logs
 #between police/homicide and police killings/capita
-plotdf$polhomratio <- plotdf$police/plotdf$homicide #log(plotdf$police/plotdf$homicides)
+plotdf$polhomratio <- plotdf$police/plotdf$homicides #log(plotdf$police/plotdf$homicides)
 plotdf$polkillings_percapita <- 10^6 * (
   0.1+plotdf$policekillings #adding 0.1 so that countries with 0 police killings are included
 )/plotdf$population#log((0.1 + plotdf$policekillings)/plotdf$population)
@@ -1133,7 +1133,7 @@ police_added_percent <- (police_2019 + police_added)/police_2019 - 1
 #this is a bit tricker, since we need to take into
 #account the fact that each police officer adds some prison-years
 #calculations for this are at:
-setwd(codedir); source('thetradeoff_fwbalancecalcs.R')
+source(file.path(codedir,'thetradeoff_fwbalancecalcs_ajlecopy.R')) #frozen 2022 copy; see header of that file
 
 prisoners_added<- -2000000
 prisoners_added_effective <- 
@@ -1173,7 +1173,7 @@ homicides_2019 - (
 #this comes from applying the elasticities in stepwise fashion rather than directly
 #and assuming that the elasticities are constant..
 #details are in 'calculate_homicides.R' (only the function is relevant, since we apply constant elasticities)
-setwd(codedir); source('calculate_homicides.R')
+source(file.path(codedir,'calculate_homicides_ajlecopy.R')) #frozen 2022 copy; see header of that file
 homicides_added <- calculate_homicides(
   priz0 = round(10^5 * prisoners_2019/pop_2019),
   prizf = prisonrate_proposed_effective,
@@ -1310,7 +1310,7 @@ ggsave(
 #AND CALCS FROM SECTION IV. PRIORITIZING THE DISADVANTAGED
 
 setwd(codedir); dir()
-source("thetradeoff_fairness_01thearrested_ajlecopy.R")
-source("thetradeoff_fairness_02theincarcerated_ajlecopy.R")
-source("thetradeoff_fairness_03themurdered_ajlecopy.R")
-source("thetradeoff_fairness_04output_ajlecopy.R")
+source(file.path(codedir,"thetradeoff_fairness_01thearrested_ajlecopy.R")) #explicit path: the sourced scripts setwd() away from codedir
+source(file.path(codedir,"thetradeoff_fairness_02theincarcerated_ajlecopy.R")) #explicit path: the sourced scripts setwd() away from codedir
+source(file.path(codedir,"thetradeoff_fairness_03themurdered_ajlecopy.R")) #explicit path: the sourced scripts setwd() away from codedir
+source(file.path(codedir,"thetradeoff_fairness_04output_ajlecopy.R")) #explicit path: the sourced scripts setwd() away from codedir

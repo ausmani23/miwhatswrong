@@ -26,7 +26,7 @@ This repository contains the code that generates results and figures for *What's
     + thetradeoff_fairness_04output.R - Outputs figures based on the calculations above
 	
     **MISCELLANEOUS**
-    + ajle_figs.R - Replication code for 'The Injustice of Under-Policing'. Note that Figure 6 and associated calculations are replicated by the 'thetradeoff_fairness' files. Because these files will continue to be updated for the book, I've put archived versions of them in the repository. These have the suffix '_ajlecopy'. 
+    + ajle_figs.R - Replication code for 'The Injustice of Under-Policing'. Note that Figure 6 and associated calculations are replicated by the 'thetradeoff_fairness' files. Because these files will continue to be updated for the book, I've put archived versions of them in the repository. These have the suffix '_ajlecopy'. The same goes for the two helper files the AJLE calculations depend on (thetradeoff_fwbalancecalcs_ajlecopy.R and calculate_homicides_ajlecopy.R), which are frozen at their November 2022 state; the live versions of those files continue to change for the book. 
 	+ ajle_alec.R - Replication code for our response to Alec Karakantsis. 
 	+ bookproposal.R - Reproduces every figure quoted in the book proposal (incarceration levels and ratios, class and race gaps, crime and punishment before the rise, drug offenders, penal spending, police/prisoner ratios, police killings, the First World Balance, OECD redistribution). Reads the World History of Punishment Database as harmonized by the *From Plantation to Prison* pipeline (expected at `../p2p`, or set `P2P_DIR`), plus IPUMS and the OECD IDD; the database is not yet public, so the script runs once it is released. Writes `output/bookproposal_numbers.csv`.
 	+ bookproposal_drugshare.R - Companion to bookproposal.R: checks the drug-share-of-arrests claim after harmonizing what each country counts (traffic, alcohol, and petty offenses removed from every denominator), from transcribed national police statistics for ten rich democracies. Writes `output/bookproposal_drugshare.csv`.
@@ -43,7 +43,7 @@ Please contact Adaner with questions about how to run the code or if you encount
     
 ## Notes
 
-To run the code, you'll have to mimic the folder structure I use, putting any replication data files in a '/data' folder and creating an '/output' folder to house figures and calculations. When files have numbers, either at the start of the file or in the middle, it indicates that they need to be run in a particular order. 
+To run the code, you'll need the R packages data.table, dplyr, tidyr, ggplot2, ggrepel, plyr, zoo, stringr, readxl, haven, rprojroot, and questionr. You'll have to mimic the folder structure I use, putting any replication data files in a '/data' folder and creating an '/output' folder to house figures and calculations. When files have numbers, either at the start of the file or in the middle, it indicates that they need to be run in a particular order. 
 
 
 
