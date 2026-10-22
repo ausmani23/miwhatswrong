@@ -1,7 +1,7 @@
 #########################################################
 #########################################################
 ##
-## proposal_numbers.R
+## bookproposal.R
 ##
 ## Reproduces every figure in the book proposal for
 ## *What's Wrong with Mass Incarceration?* (Lewis and Usmani).
@@ -26,7 +26,7 @@
 ## Scotland and Northern Ireland.
 ##
 ## Run from the repository root:
-##   Rscript proposal/proposal_numbers.R
+##   Rscript code/bookproposal.R
 ## Set P2P_DIR if the From Plantation to Prison repository is
 ## not at ../p2p.
 ##
@@ -311,7 +311,7 @@ if (is.null(oecd)) {
 
 #SAVE
 
-outdir <- file.path('proposal','output')
+outdir <- 'output'
 dir.create(outdir, showWarnings=F)
-fwrite(rbindlist(out), file.path(outdir,'proposal_numbers.csv'))
-cat('\nWrote', file.path(outdir,'proposal_numbers.csv'), '\n')
+fwrite(rbindlist(out), file.path(outdir,'bookproposal_numbers.csv'))
+cat('\nWrote', file.path(outdir,'bookproposal_numbers.csv'), '\n')

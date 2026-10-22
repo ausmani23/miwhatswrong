@@ -28,6 +28,7 @@ This repository contains the code that generates results and figures for *What's
     **MISCELLANEOUS**
     + ajle_figs.R - Replication code for 'The Injustice of Under-Policing'. Note that Figure 6 and associated calculations are replicated by the 'thetradeoff_fairness' files. Because these files will continue to be updated for the book, I've put archived versions of them in the repository. These have the suffix '_ajlecopy'. 
 	+ ajle_alec.R - Replication code for our response to Alec Karakantsis. 
+	+ bookproposal.R - Reproduces every figure quoted in the book proposal (incarceration levels and ratios, class and race gaps, crime and punishment before the rise, drug offenders, penal spending, police/prisoner ratios, police killings, the First World Balance, OECD redistribution). Reads the World History of Punishment Database as harmonized by the *From Plantation to Prison* pipeline (expected at `../p2p`, or set `P2P_DIR`), plus IPUMS and the OECD IDD; the database is not yet public, so the script runs once it is released. Writes `output/bookproposal_numbers.csv`.
 	
 ## Related Work
 
