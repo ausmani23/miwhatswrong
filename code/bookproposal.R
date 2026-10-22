@@ -163,12 +163,53 @@ for (yrs in list(1965:1969, 1970:1974)) {
 #########################################################
 #########################################################
 
-#4. DRUG OFFENDERS (UNODC prisoners by offense)
+#4. DRUG OFFENDERS: PRISONERS AND ARRESTS
 
-#Share of sentenced prisoners held for drug offenses. Numerator: UNODC's
-#'drug' total where reported, otherwise trafficking plus possession; the
-#denominator is UNODC's count of sentenced prisoners. Median across UNODC
-#releases within a country-year (these rows are not maindata).
+#The proposal says the share of prisoners (or arrestees) held for
+#drug offenses is comparable to other developed countries. We check
+#both halves.
+#
+#(a) Prisoners. Share of sentenced prisoners held for drug offenses.
+#Numerator: UNODC's 'drug' total where reported, otherwise
+#trafficking plus possession; denominator: UNODC's count of
+#sentenced prisoners. Median across UNODC releases within a
+#country-year (these rows are not maindata). The US is BELOW the
+#median: 13.3% vs 20.9% (2015-24).
+#
+#(b) Arrests. Same construction on UNODC's 'persons brought into
+#formal contact with the police'. This series is less comparable
+#than it looks, because UNODC lets each country report suspects,
+#arrests, or cautions. Most of Europe reports registered suspects
+#(a named person formally recorded as the offender, usually after a
+#hearing, file sent to the prosecutor); the US reports FBI arrests,
+#which include in-person citations and summonses. Conceptually the
+#two are close. What differs is the denominator: the US total
+#carries about 1.5 million DUI, drunkenness and liquor-law arrests
+#and a 3.3 million "all other offenses" catch-all; Germany excludes
+#traffic entirely but counts fare evasion and insult; Norway and the
+#Netherlands include traffic; and so on. The raw UNODC comparison
+#puts the US at 15.4% vs a median of 10.9% across 17 countries
+#(13.2% across the ten countries harmonized below), 2016-22.
+#
+#bookproposal_drugshare.R rebuilds the denominators from national
+#police statistics for ten countries (FBI, BKA, SSMSI, Bra, BFS,
+#CBS, BMI, SSB, Home Office, ABS, StatCan), removing traffic and
+#DUI, alcohol offenses, and petty public-order offenses everywhere.
+#On that common scope the US is at the median: 19.0% vs 17.3% in
+#2019 (rank 5 of 11), 13.7% vs 14.0% in 2022/23. Harmonizing adds
+#about 3.5 points to the US and 6-9 points to Norway, Switzerland
+#and Australia, so the US stays mid-pack. Restricting instead to
+#"core" offenses (violent, property, weapons, drugs) puts the US
+#near the top, but that cut discards what the police/homicide ratio
+#predicts: where police are plentiful relative to serious crime,
+#much of their work is minor offenses. We therefore report the
+#broad scope. Counting units still differ (events vs persons vs
+#person-offense pairs) and cannot be harmonized from published
+#tables; see the companion script for the unit codes and bounds.
+#
+#Bottom line: on prisoners the US share is lower than elsewhere; on
+#arrests it is within the range and close to the median however the
+#denominator is cut. "Comparable" holds for both.
 
 cat('\n--- Drug offenders ---\n')
 
@@ -177,23 +218,38 @@ setDT(drugdf)
 drugdf <- drugdf[
   bigcountries==T & countrycompset=='Rich' & !grepl('Fake', cownum) &
     !countryname %in% c('United Kingdom (composite)','United Kingdom') &
-    grepl('unodc', source) & statistic %in% c('prisoners','prisoners_sentenced') &
-    is.na(gender) & is.na(age) & is.na(sentence) & year %in% recent
+    grepl('unodc', source) & is.na(gender) & is.na(age) & is.na(sentence)
 ]
-num <- drugdf[crime %in% c('drug','drugtraffic','drugpossession'),
-              .(v=median(value)), by=c('countryname','usa','year','crime')]
-num <- dcast(num, countryname + usa + year ~ crime, value.var='v')
-for (v in c('drug','drugtraffic','drugpossession')) if (!v %in% names(num)) num[, (v) := NA_real_]
-num[, drugs := fifelse(!is.na(drug), drug, rowSums(cbind(drugtraffic, drugpossession), na.rm=T))]
-den <- drugdf[statistic=='prisoners_sentenced' & is.na(crime),
-              .(sentenced=median(value)), by=c('countryname','year')]
-drugs <- merge(num, den, by=c('countryname','year'))[, .(v=mean(100*drugs/sentenced)), by=c('countryname','usa')]
-rm(drugdf)
 
+#share of a UNODC statistic accounted for by drug offenses, by country
+drugshare <- function(num_stats, denom_stat, yrs) {
+  x <- drugdf[statistic %in% c(num_stats, denom_stat) & year %in% yrs]
+  num <- x[statistic %in% num_stats & crime %in% c('drug','drugtraffic','drugpossession'),
+           .(v=median(value)), by=c('countryname','usa','year','crime')]
+  num <- dcast(num, countryname + usa + year ~ crime, value.var='v')
+  for (v in c('drug','drugtraffic','drugpossession')) if (!v %in% names(num)) num[, (v) := NA_real_]
+  num[, drugs := fifelse(!is.na(drug), drug, rowSums(cbind(drugtraffic, drugpossession), na.rm=T))]
+  num <- num[!(is.na(drug) & is.na(drugtraffic) & is.na(drugpossession))]
+  den <- x[statistic==denom_stat & is.na(crime), .(total=median(value)), by=c('countryname','year')]
+  merge(num, den, by=c('countryname','year'))[, .(v=mean(100*drugs/total)), by=c('countryname','usa')]
+}
+
+#(a) prisoners: numerator rows are filed under 'prisoners' or
+#'prisoners_sentenced'; the denominator is sentenced prisoners
+drugs <- drugshare(c('prisoners','prisoners_sentenced'), 'prisoners_sentenced', recent)
 report('Drug offenders, % of sentenced prisoners, US (2015-24)', round(drugs[usa==T, v],1))
 report('Drug offenders, % of sentenced prisoners, median rich', round(drugs[usa==F, median(v)],1),
        sprintf('%d countries; 20th-80th pct %.0f-%.0f%%', drugs[usa==F, .N],
                drugs[usa==F, quantile(v,.2)], drugs[usa==F, quantile(v,.8)]))
+
+#(b) arrests (UNODC 'formal contact', raw; see bookproposal_drugshare.R
+#for the harmonized version). The US series ends in 2020.
+arr <- drugshare('arrests', 'arrests', 2016:2022)
+report('Drug offenders, % of arrests (UNODC raw), US (2016-20)', round(arr[usa==T, v],1))
+report('Drug offenders, % of arrests (UNODC raw), median rich', round(arr[usa==F, median(v)],1),
+       sprintf('%d countries; 20th-80th pct %.0f-%.0f%%; harmonized: US 19.0 vs median 17.3 (2019)', arr[usa==F, .N],
+               arr[usa==F, quantile(v,.2)], arr[usa==F, quantile(v,.8)]))
+rm(drugdf)
 
 #########################################################
 #########################################################
